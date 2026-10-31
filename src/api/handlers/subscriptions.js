@@ -15,6 +15,121 @@ import { lunarCalendar } from '../../core/lunar.js';
 import { formatTimeInTimezone, formatTimezoneDisplay, getTimezoneDateParts } from '../../core/time.js';
 import { formatAmount } from '../../core/currency-format.js';
 import { extractTagsFromSubscriptions } from '../utils.js';
+import { withDerivedFields, stripDerivedFields } from '../../data/derived.js';
+
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const BATCH_ACTIONS = ['renew', 'enable', 'disable', 'delete'];
+const BATCH_MAX_IDS = 200;
+
+/**
+ * @param {any} env
+ * @returns {Promise<string>}
+ */
+async function getTimezone(env) {
+  const config = await getConfig(env);
+  return (config && config.TIMEZONE) || 'Asia/Shanghai';
+}
+
+/**
+ * 给结果中的 subscription 附加派生展示字段（nameParts / daysLeft），不落库。
+ *
+ * @param {any} result
+ * @param {string} timezone
+ */
+function decorateResult(result, timezone) {
+  if (result && result.subscription) {
+    return { ...result, subscription: withDerivedFields(result.subscription, timezone) };
+  }
+  return result;
+}
+
+/**
+ * 批量操作：对每个 id 复用单条逻辑，顺序执行（避免并发读改写 sub_index）。
+ *
+ * @param {Request} request
+ * @param {any} env
+ */
+async function handleBatch(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, message: '请求体不是合法 JSON' }),
+      { status: 400, headers: JSON_HEADERS }
+    );
+  }
+  const action = body && body.action;
+  const rawIds = body && body.ids;
+  if (!BATCH_ACTIONS.includes(action)) {
+    return new Response(
+      JSON.stringify({ success: false, message: `action 必须是 ${BATCH_ACTIONS.join(' / ')} 之一` }),
+      { status: 400, headers: JSON_HEADERS }
+    );
+  }
+  if (!Array.isArray(rawIds) || rawIds.length === 0) {
+    return new Response(
+      JSON.stringify({ success: false, message: 'ids 必须是非空数组' }),
+      { status: 400, headers: JSON_HEADERS }
+    );
+  }
+  /** @type {string[]} */
+  const ids = [];
+  for (const raw of rawIds) {
+    const id = typeof raw === 'number' ? String(raw) : raw;
+    if (typeof id !== 'string' || id.trim() === '') {
+      return new Response(
+        JSON.stringify({ success: false, message: 'ids 中包含无效 id' }),
+        { status: 400, headers: JSON_HEADERS }
+      );
+    }
+    if (!ids.includes(id)) ids.push(id);
+  }
+  if (ids.length > BATCH_MAX_IDS) {
+    return new Response(
+      JSON.stringify({ success: false, message: `单次最多处理 ${BATCH_MAX_IDS} 条` }),
+      { status: 400, headers: JSON_HEADERS }
+    );
+  }
+
+  const timezone = await getTimezone(env);
+  const results = [];
+  for (const id of ids) {
+    let r;
+    try {
+      if (action === 'renew') {
+        // 与 POST /subscriptions/:id/renew 空 body 完全一致：续 1 个周期，记录一条支付
+        r = await manualRenewSubscription(id, env, {});
+      } else if (action === 'enable' || action === 'disable') {
+        r = await toggleSubscriptionStatus(id, action === 'enable', env);
+      } else {
+        r = await deleteSubscription(id, env);
+      }
+    } catch (err) {
+      r = { success: false, message: err && err.message ? err.message : '操作失败' };
+    }
+    /** @type {any} */
+    const item = { id, success: !!(r && r.success) };
+    if (r && r.message) item.message = r.message;
+    if (r && r.subscription) {
+      item.subscription = withDerivedFields(r.subscription, timezone);
+      item.expiryDate = r.subscription.expiryDate;
+    }
+    results.push(item);
+  }
+  const succeeded = results.filter((x) => x.success).length;
+  return new Response(
+    JSON.stringify({
+      success: succeeded === results.length,
+      action,
+      total: results.length,
+      succeeded,
+      failed: results.length - succeeded,
+      results
+    }),
+    { status: 200, headers: JSON_HEADERS }
+  );
+}
 
 async function testSingleSubscriptionNotification(id, env) {
   try {
@@ -92,13 +207,16 @@ async function handleSubscriptions(request, env, path) {
   if (path === '/subscriptions') {
     if (method === 'GET') {
       const subscriptions = await getAllSubscriptions(env);
-      return new Response(JSON.stringify(subscriptions), { headers: { 'Content-Type': 'application/json' } });
+      const timezone = await getTimezone(env);
+      const now = new Date();
+      const decorated = subscriptions.map((sub) => withDerivedFields(sub, timezone, now));
+      return new Response(JSON.stringify(decorated), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (method === 'POST') {
       let subscription;
       try {
-        subscription = await request.json();
+        subscription = stripDerivedFields(await request.json());
       } catch {
         return new Response(
           JSON.stringify({ success: false, message: '请求体不是合法 JSON' }),
@@ -130,6 +248,10 @@ async function handleSubscriptions(request, env, path) {
     }
   }
 
+  if (path === '/subscriptions/batch' && method === 'POST') {
+    return handleBatch(request, env);
+  }
+
   if (path.startsWith('/subscriptions/')) {
     const parts = path.split('/');
     const id = parts[2];
@@ -157,7 +279,13 @@ async function handleSubscriptions(request, env, path) {
         // empty
       }
       const result = await manualRenewSubscription(id, env, options);
-      return new Response(JSON.stringify(result), { status: result.success ? 200 : 400, headers: { 'Content-Type': 'application/json' } });
+      /** @type {any} */
+      let payload = result;
+      if (result.success && result.subscription) {
+        payload = decorateResult(result, await getTimezone(env));
+        payload.expiryDate = result.subscription.expiryDate; // 新到期日（顶层，方便前端直接取）
+      }
+      return new Response(JSON.stringify(payload), { status: result.success ? 200 : 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     if (parts[3] === 'payments' && method === 'GET') {
@@ -189,13 +317,14 @@ async function handleSubscriptions(request, env, path) {
           { status: 404, headers: { 'Content-Type': 'application/json' } }
         );
       }
-      return new Response(JSON.stringify(subscription), { headers: { 'Content-Type': 'application/json' } });
+      const timezone = await getTimezone(env);
+      return new Response(JSON.stringify(withDerivedFields(subscription, timezone)), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (method === 'PUT') {
       let subscription;
       try {
-        subscription = await request.json();
+        subscription = stripDerivedFields(await request.json());
       } catch {
         return new Response(
           JSON.stringify({ success: false, message: '请求体不是合法 JSON' }),
