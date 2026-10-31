@@ -14,7 +14,7 @@
  *   createdAt: string                           // ISO
  * }
  *
- * 智能预设（新订阅默认 4 条）：到期前 7/3/1 天 + 到期当天。
+ * 智能预设（新订阅默认 4 条）：到期前 10/3/1 天 + 到期当天。
  *
  */
 
@@ -42,14 +42,14 @@ export function makeRuleId() {
 }
 
 /**
- * 智能预设：4 条 — 到期前 7/3/1 天 + 当天。
+ * 智能预设：4 条 — 到期前 10/3/1 天 + 当天。
  *
  * @returns {ReminderRule[]}
  */
 export function defaultPresetRules() {
   const now = new Date().toISOString();
   return [
-    { id: makeRuleId(), type: 'before_expiry', value: 7, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true, createdAt: now },
+    { id: makeRuleId(), type: 'before_expiry', value: 10, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true, createdAt: now },
     { id: makeRuleId(), type: 'before_expiry', value: 3, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true, createdAt: now },
     { id: makeRuleId(), type: 'before_expiry', value: 1, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true, createdAt: now },
     { id: makeRuleId(), type: 'on_expiry', value: 0, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true, createdAt: now }

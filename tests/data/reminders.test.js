@@ -54,11 +54,11 @@ describe('reminders.repo', () => {
     expect(await repo.listForSubscription(env, 's1')).toEqual([]);
   });
 
-  it('defaultPresetRules 返回 4 条预设（7/3/1/当天）', () => {
+  it('defaultPresetRules 返回 4 条预设（10/3/1/当天）', () => {
     const rules = repo.defaultPresetRules();
     expect(rules).toHaveLength(4);
     expect(rules.map((r) => `${r.type}:${r.value}${r.unit[0]}`)).toEqual([
-      'before_expiry:7d',
+      'before_expiry:10d',
       'before_expiry:3d',
       'before_expiry:1d',
       'on_expiry:0d'

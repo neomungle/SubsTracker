@@ -404,7 +404,7 @@
               <h3 class="form-section-title mb-0"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>提醒规则</h3>
               <div class="flex items-center gap-2">
                 <button type="button" id="reminderRulesPresetBtn" class="btn btn-xs">
-                  <svg class="icon" aria-hidden="true"><use href="#i-wand"/></svg>预设 7/3/1/当天
+                  <svg class="icon" aria-hidden="true"><use href="#i-wand"/></svg>预设 10/3/1/当天
                 </button>
                 <button type="button" id="reminderRulesAddBtn" class="btn btn-xs btn-primary">
                   <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>添加规则
@@ -417,12 +417,12 @@
               </div>
             </div>
             <p class="hint">
-              <strong>精确匹配：</strong>「到期前 N 天」仅在剩余天数正好等于 N 时发送一次；希望 7/3/1 天都提醒请添加多条规则。
+              <strong>精确匹配：</strong>「到期前 N 天」仅在剩余天数正好等于 N 时发送一次；希望 10/3/1 天都提醒请添加多条规则。
               到期后规则按「每 X 小时」重复，直到续费或手动确认。
             </p>
             <!-- 兜底字段：旧调度器路径需要这两个值；当 reminderRules 为空时仍生效 -->
             <input type="hidden" id="reminderUnit" value="day">
-            <input type="hidden" id="reminderValue" value="7">
+            <input type="hidden" id="reminderValue" value="10">
             <div class="error-message" data-for="reminderValue"></div>
             <p id="reminderHint" class="hidden"></p>
           </section>
@@ -2579,7 +2579,7 @@ const lunarBiz = {
       const today = getTodayDateStringInTimezone(globalTimezone);
       document.getElementById('startDate').value = today;
       document.getElementById('category').value = '';
-      document.getElementById('reminderValue').value = '7';
+      document.getElementById('reminderValue').value = '10';
       document.getElementById('reminderUnit').value = 'day';
       document.getElementById('isActive').checked = true;
       document.getElementById('autoRenew').checked = true;
@@ -3731,7 +3731,7 @@ const lunarBiz = {
     // ───────────────────────────────────────────────────────
     // 多提醒规则编辑器（内嵌在订阅表单中）
     //   - 数据形态：[{ id, type, value, unit, repeatInterval?, repeatUntil?, isEnabled }]
-    //   - 新建订阅时默认渲染 4 条预设（7/3/1/0 天）
+    //   - 新建订阅时默认渲染 4 条预设（10/3/1/0 天）
     //   - 编辑订阅时通过 /api/subscriptions/:id/reminders 拉取
     //   - 表单提交时自动收集并附加在 reminderRules 字段
     // ───────────────────────────────────────────────────────
@@ -3759,7 +3759,7 @@ const lunarBiz = {
 
       function defaultPresets() {
         return [
-          { id: uuid(), type: 'before_expiry', value: 7, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true },
+          { id: uuid(), type: 'before_expiry', value: 10, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true },
           { id: uuid(), type: 'before_expiry', value: 3, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true },
           { id: uuid(), type: 'before_expiry', value: 1, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true },
           { id: uuid(), type: 'on_expiry', value: 0, unit: 'days', repeatInterval: null, repeatUntil: 'renewed', isEnabled: true }
@@ -3892,7 +3892,7 @@ const lunarBiz = {
           rules.push({
             id: uuid(),
             type: 'before_expiry',
-            value: 7,
+            value: 10,
             unit: 'days',
             repeatInterval: null,
             repeatUntil: 'renewed',
