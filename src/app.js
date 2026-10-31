@@ -21,6 +21,12 @@ import { handleAdminRequest, handleLoginPage } from './api/admin.js';
 import { handleDebug } from './api/debug.js';
 import { getUserFromRequest } from './api/handlers/auth.js';
 import { ensureMigrations } from './data/migrate.js';
+import {
+  LOGO_SVG,
+  FAVICON_PNG_BASE64,
+  APPLE_TOUCH_ICON_PNG_BASE64,
+  base64ToBytes
+} from './views/brand.js';
 
 /**
  * @typedef {{ SUBSCRIPTIONS_KV: KVNamespace }} Bindings
@@ -28,6 +34,34 @@ import { ensureMigrations } from './data/migrate.js';
 
 /** @type {Hono<{ Bindings: Bindings }>} */
 const app = new Hono();
+
+// ─────────────────────────────────────────────────────────────
+// 品牌资源：favicon / apple-touch-icon / logo
+// 注册在所有中间件之前：无需鉴权、不触发 KV 迁移检查
+// ─────────────────────────────────────────────────────────────
+const BRAND_CACHE = 'public, max-age=86400';
+
+/**
+ * @param {BodyInit} body
+ * @param {string} type
+ */
+function brandResponse(body, type) {
+  return new Response(body, {
+    headers: { 'Content-Type': type, 'Cache-Control': BRAND_CACHE }
+  });
+}
+
+app.get('/favicon.svg', () => brandResponse(LOGO_SVG, 'image/svg+xml; charset=utf-8'));
+app.get('/logo.svg', () => brandResponse(LOGO_SVG, 'image/svg+xml; charset=utf-8'));
+// 浏览器默认会请求 /favicon.ico：直接返回 32px PNG（主流浏览器均可识别）
+app.get('/favicon.ico', () => brandResponse(base64ToBytes(FAVICON_PNG_BASE64), 'image/png'));
+app.get('/favicon-32.png', () => brandResponse(base64ToBytes(FAVICON_PNG_BASE64), 'image/png'));
+app.get('/apple-touch-icon.png', () =>
+  brandResponse(base64ToBytes(APPLE_TOUCH_ICON_PNG_BASE64), 'image/png')
+);
+app.get('/apple-touch-icon-precomposed.png', () =>
+  brandResponse(base64ToBytes(APPLE_TOUCH_ICON_PNG_BASE64), 'image/png')
+);
 
 // ─────────────────────────────────────────────────────────────
 // 全局中间件：迁移检查（首次访问透明触发）
