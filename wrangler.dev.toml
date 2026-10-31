@@ -5,7 +5,7 @@
 # 与 wrangler.toml 的差异：
 #   - 内联了一个 KV 命名空间假 ID，让 miniflare 模拟 KV 时不再报"未绑定"
 #   - 不动主 wrangler.toml，避免与 npm run setup 自动写入的 KV 块冲突
-name = "subscription-manager-dev"
+name = "substracker-dev"
 main = "src/index.js"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]

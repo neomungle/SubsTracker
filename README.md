@@ -61,7 +61,7 @@ npm run deploy:safe
 
 部署成功后，终端会打印类似：
 
-`https://subscription-manager.<你的子域>.workers.dev`
+`https://substracker.<你的子域>.workers.dev`
 
 ### 方式二：GitHub Actions
 

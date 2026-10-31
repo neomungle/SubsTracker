@@ -1,5 +1,5 @@
 {
-  "name": "subscription-manager",
+  "name": "substracker",
   "version": "3.0.0",
   "description": "订阅管理系统 - 基于 Cloudflare Workers + Hono",
   "main": "src/index.js",
