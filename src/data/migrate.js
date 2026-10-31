@@ -7,8 +7,11 @@
  * 2. **可重入安全**：通过 `migration_lock` Key（60s TTL）防止 Cron 与请求并发触发。
  *    最坏情况是其中一方放弃迁移，另一方完成；不会双写。
  * 3. **可累加**：后续 Task 在 `MIGRATION_STEPS` 数组里追加 step，不影响已运行的步骤。
- * 4. **数据安全**：旧 `subscriptions` 单 Key 在迁移成功后改名为
- *    `subscriptions_v2_backup`（7 天 TTL）保留作回滚备份。
+ * 4. **数据安全**：旧 `subscriptions` 单 Key 在迁移后**原样保留、永不删除**，
+ *    同时额外写一份 `subscriptions_v2_backup`（无 TTL，永久）作回滚备份。
+ *    v3 代码路径（repo / handler / scheduler / backup）只读 `sub_index` + `sub:{id}`，
+ *    唯一读取旧 `subscriptions` 的地方是本文件的 migrateSubscriptions；
+ *    且它在已迁移过（备份 + 索引均存在）时不会再用旧数据覆盖新数据。
  *
  * ── KV 标记一览 ─────────────────────────────────────────────
  *   schema_version           = 'v3'        ← 数据 schema 版本标识，置上后每次请求秒过
@@ -27,7 +30,8 @@ export const SCHEMA_VERSION = 'v3';
 const KEY_SCHEMA_VERSION = 'schema_version';
 const KEY_MIGRATION_LOCK = 'migration_lock';
 const LOCK_TTL_SEC = 60;
-const BACKUP_TTL_SEC = 7 * 24 * 3600;
+const KEY_LEGACY_SUBSCRIPTIONS = 'subscriptions';
+const KEY_LEGACY_BACKUP = 'subscriptions_v2_backup';
 
 /**
  * @typedef {Object} MigrationStep
@@ -160,17 +164,31 @@ async function releaseLock(env) {
  * 迁移：旧 `subscriptions`（JSON 数组）→ `sub:{id}` 多 Key + `sub_index`。
  *
  * - 读 `subscriptions`，逐条写 `sub:{id}`，构建索引并写 `sub_index`
- * - 旧 `subscriptions` 改名为 `subscriptions_v2_backup`（7 天 TTL）后删除
+ * - 原始数据**原样**复制到 `subscriptions_v2_backup`（无 TTL，永久保留）
+ * - 旧 `subscriptions` Key **不删除、不修改**（生产数据安全第一）
  * - 旧数据为空或缺失：仅写一个空索引，schema_version 仍写入
  *
- * 幂等性：
- *   - 若 sub_index 已写过且 sub:{id} 已存在，重复执行会覆盖（值相同，影响仅 KV 写次数）
- *   - 若旧 subscriptions 已被改名，第二次读到 null 视为已迁移，跳过
+ * 幂等性 / 防止读到陈旧数据：
+ *   - 正常情况下 `migrate:subscriptions_v3=done` + `schema_version=v3` 保证本函数只跑一次。
+ *   - 防御性兜底：若 `subscriptions_v2_backup` 与 `sub_index` 都已存在，说明之前已迁移成功，
+ *     此后 v3 数据才是权威，本函数**不再**用旧 `subscriptions` 覆盖（避免把用户新编辑回滚）。
+ *   - 若上次在写完 sub:{id} 后、写备份前崩溃，则备份不存在 → 重新导入同一份旧数据，结果一致。
+ *   - 备份已存在时不会被覆盖，保证它永远是"首次迁移前"的原始值。
  *
  * @param {{ SUBSCRIPTIONS_KV: KVNamespace }} env
+ * @returns {Promise<{ imported: number, skipped?: string }>}
  */
 export async function migrateSubscriptions(env) {
-  const oldRaw = await env.SUBSCRIPTIONS_KV.get('subscriptions');
+  const [oldRaw, existingBackup, existingIndexRaw] = await Promise.all([
+    env.SUBSCRIPTIONS_KV.get(KEY_LEGACY_SUBSCRIPTIONS),
+    env.SUBSCRIPTIONS_KV.get(KEY_LEGACY_BACKUP),
+    env.SUBSCRIPTIONS_KV.get('sub_index')
+  ]);
+
+  if (existingBackup != null && existingIndexRaw != null) {
+    console.log('[migrate:subscriptions_v3] 已迁移过（备份与索引均存在），跳过，不覆盖 v3 数据');
+    return { imported: 0, skipped: 'already_migrated' };
+  }
 
   /** @type {any[]} */
   let oldSubs = [];
@@ -184,26 +202,30 @@ export async function migrateSubscriptions(env) {
     }
   }
 
-  // 写入新结构（即使 oldSubs 为空也要写 sub_index 占位）
-  if (oldSubs.length > 0) {
-    await subRepo.replaceAll(env, oldSubs);
-  } else {
-    // 现有索引可能已有值（来自第二次执行），不要覆盖
-    const existing = await subRepo.listIds(env);
-    if (existing.length === 0) {
-      await env.SUBSCRIPTIONS_KV.put('sub_index', '[]');
-    }
+  // 仅保留拥有合法字符串 id 的记录写入 v3（其余仍完整保存在旧 Key 与备份里）
+  const validSubs = oldSubs.filter(
+    (s) => s && typeof s === 'object' && typeof s.id === 'string' && s.id !== ''
+  );
+  if (validSubs.length !== oldSubs.length) {
+    console.warn(
+      `[migrate:subscriptions_v3] ${oldSubs.length - validSubs.length} 条旧记录缺少有效 id，未写入 v3（原始数据仍保留在备份中）`
+    );
   }
 
-  // 备份旧数据并删除原 Key
-  if (oldRaw) {
-    await env.SUBSCRIPTIONS_KV.put('subscriptions_v2_backup', oldRaw, {
-      expirationTtl: BACKUP_TTL_SEC
-    });
-    await env.SUBSCRIPTIONS_KV.delete('subscriptions');
+  // 写入新结构（即使为空也要写 sub_index 占位）
+  if (validSubs.length > 0) {
+    await subRepo.replaceAll(env, validSubs);
+  } else if (existingIndexRaw == null) {
+    await env.SUBSCRIPTIONS_KV.put('sub_index', '[]');
   }
 
-  console.log(`[migrate:subscriptions_v3] 已迁移 ${oldSubs.length} 条订阅`);
+  // 永久备份原始字节（无 TTL）；已有备份绝不覆盖；原 Key 保持不动
+  if (oldRaw && existingBackup == null) {
+    await env.SUBSCRIPTIONS_KV.put(KEY_LEGACY_BACKUP, oldRaw);
+  }
+
+  console.log(`[migrate:subscriptions_v3] 已迁移 ${validSubs.length} 条订阅（原 subscriptions Key 保留）`);
+  return { imported: validSubs.length };
 }
 
 /**

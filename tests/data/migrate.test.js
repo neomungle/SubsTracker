@@ -110,9 +110,57 @@ describe('migrate.migrateSubscriptions', () => {
     expect((await subRepo.listIds(env)).sort()).toEqual(['s1', 's2', 's3']);
     expect((await subRepo.getById(env, 's2')).name).toBe('Spotify');
 
-    // 备份存在，原 Key 已删
-    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions_v2_backup')).toBeTruthy();
-    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions')).toBeNull();
+    // 备份存在且与原始字节一致；原 Key 原样保留（不再删除）
+    const raw = JSON.stringify(old);
+    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions_v2_backup')).toBe(raw);
+    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions')).toBe(raw);
+  });
+
+  it('备份无 TTL（永久保留）', async () => {
+    await env.SUBSCRIPTIONS_KV.put('subscriptions', JSON.stringify([{ id: 't1', name: 'A' }]));
+    await migrateSubscriptions(env);
+    const list = await env.SUBSCRIPTIONS_KV.list({ prefix: 'subscriptions' });
+    const names = list.keys.map((k) => k.name).sort();
+    expect(names).toEqual(['subscriptions', 'subscriptions_v2_backup']);
+    for (const k of list.keys) {
+      expect(k.expiration).toBeUndefined();
+    }
+  });
+
+  it('重复执行不会用旧 subscriptions 覆盖 v3 中的新编辑，也不覆盖备份', async () => {
+    const raw = JSON.stringify([{ id: 'e1', name: 'Original' }]);
+    await env.SUBSCRIPTIONS_KV.put('subscriptions', raw);
+    await migrateSubscriptions(env);
+
+    // 用户在 v3 里编辑并新增
+    await subRepo.save(env, { id: 'e1', name: 'Edited' });
+    await subRepo.save(env, { id: 'e2', name: 'New' });
+
+    const r = await migrateSubscriptions(env);
+    expect(r.skipped).toBe('already_migrated');
+    expect((await subRepo.getById(env, 'e1')).name).toBe('Edited');
+    expect((await subRepo.listIds(env)).sort()).toEqual(['e1', 'e2']);
+    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions_v2_backup')).toBe(raw);
+    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions')).toBe(raw);
+  });
+
+  it('上次在写备份前中断 → 重跑会重新导入同一份旧数据（结果一致）', async () => {
+    const raw = JSON.stringify([{ id: 'c1', name: 'A' }, { id: 'c2', name: 'B' }]);
+    await env.SUBSCRIPTIONS_KV.put('subscriptions', raw);
+    // 模拟：sub:{id} 写了一半，备份未写
+    await subRepo.save(env, { id: 'c1', name: 'A' });
+    await migrateSubscriptions(env);
+    expect((await subRepo.listIds(env)).sort()).toEqual(['c1', 'c2']);
+    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions_v2_backup')).toBe(raw);
+  });
+
+  it('缺少有效 id 的旧记录不写入 v3，但原始数据完整保留', async () => {
+    const raw = JSON.stringify([{ id: 'ok', name: 'A' }, { name: 'no-id' }, null]);
+    await env.SUBSCRIPTIONS_KV.put('subscriptions', raw);
+    await migrateSubscriptions(env);
+    expect(await subRepo.listIds(env)).toEqual(['ok']);
+    expect(await env.SUBSCRIPTIONS_KV.get('sub:undefined')).toBeNull();
+    expect(await env.SUBSCRIPTIONS_KV.get('subscriptions_v2_backup')).toBe(raw);
   });
 
   it('旧 subscriptions 不存在 → 仅写空索引，不报错', async () => {
@@ -216,6 +264,36 @@ describe('migrate.ensureMigrations（编排器）', () => {
     expect(r2.reason).toBe('already_v3');
 
     expect((await subRepo.listIds(env)).length).toBe(1);
+  });
+
+  it('schema_version=v3 后即使旧 subscriptions Key 仍在（甚至被改动），也不会被读取', async () => {
+    await env.SUBSCRIPTIONS_KV.put(
+      'subscriptions',
+      JSON.stringify([{ id: 'live', name: 'Before' }])
+    );
+    await ensureMigrations(env);
+    await subRepo.save(env, { id: 'live', name: 'AfterEdit' });
+
+    // 有人往旧 Key 写入陈旧/不同的内容，且即使 step 标记丢失
+    await env.SUBSCRIPTIONS_KV.put(
+      'subscriptions',
+      JSON.stringify([{ id: 'stale', name: 'Stale' }])
+    );
+    await env.SUBSCRIPTIONS_KV.delete('migrate:subscriptions_v3');
+    _resetMigrationCache();
+
+    const r = await ensureMigrations(env);
+    expect(r.reason).toBe('already_v3');
+    expect(await subRepo.listIds(env)).toEqual(['live']);
+    expect((await subRepo.getById(env, 'live')).name).toBe('AfterEdit');
+
+    // 再极端一点：schema_version 也丢了 → step 重跑，但备份+索引存在，仍不覆盖
+    await env.SUBSCRIPTIONS_KV.delete('schema_version');
+    _resetMigrationCache();
+    const r2 = await ensureMigrations(env);
+    expect(r2.migrated).toBe(true);
+    expect(await subRepo.listIds(env)).toEqual(['live']);
+    expect((await subRepo.getById(env, 'live')).name).toBe('AfterEdit');
   });
 
   it('锁存在时 → 跳过，下次再试', async () => {
