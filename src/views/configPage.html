@@ -1,193 +1,167 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>系统配置 - 订阅管理系统</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  ${themeResources} <style>
-    
-    #toast-container {
-      position: fixed; top: 20px; right: 20px; z-index: 10000;
-      display: flex; flex-direction: column; gap: 8px; max-width: 380px;
+  <title>系统配置 · SubsTracker</title>
+  ${themeResources}
+  <style>
+    .config-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
+    .config-nav { position: sticky; top: 92px; display: grid; gap: 2px; padding: 8px; }
+    .config-nav a { display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 12px; border-radius: 11px; color: var(--muted); font-size: 13.5px; white-space: nowrap; }
+    .config-nav a .icon { width: 16px; height: 16px; }
+    .config-nav a:hover { background: var(--card2); color: var(--ink); }
+    .config-nav a.active { background: var(--card2); color: var(--ink); font-weight: 600; }
+    .config-stack { display: grid; gap: 20px; min-width: 0; }
+    .config-card { padding: 24px; scroll-margin-top: 92px; }
+    .config-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .config-card-head h2 { font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+    .config-card-head p { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .form-grid .span-2 { grid-column: 1 / -1; }
+    .field { min-width: 0; }
+    .secret-row { display: flex; gap: 8px; align-items: center; }
+    .secret-row > input, .secret-row > textarea { flex: 1; min-width: 0; }
+    .secret-row-top { align-items: flex-start; }
+    .secret-row-top > .btn { margin-top: 4px; }
+    .secret-status { font-weight: 500; color: var(--ink); }
+    #tzWindowPreview { font-size: 13px; line-height: 1.6; }
+    #tzWindowPreview:empty { display: none; }
+
+    /* 通知渠道卡片：紧凑卡片网格；启用 / 展开的渠道独占整行显示字段 */
+    .channel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-auto-flow: row dense; gap: 12px; }
+    .channel-card { background: var(--card2); border: 1px solid var(--line); border-radius: 16px; min-width: 0; transition: border-color .15s, background-color .15s, box-shadow .15s; }
+    .channel-card.active, .channel-card.expanded { grid-column: 1 / -1; background: var(--card); }
+    .channel-card.active { border-color: color-mix(in srgb, var(--green) 45%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 9%, transparent); }
+    .channel-head { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 14px; min-height: 62px; }
+    .channel-avatar { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; letter-spacing: -.02em; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
+    .channel-card.active .channel-avatar { background: var(--greenBg); color: var(--green); border-color: transparent; }
+    .channel-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; text-align: left; cursor: pointer; }
+    .channel-name { font-weight: 600; font-size: 14px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .channel-desc { color: var(--muted); font-size: 12px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .channel-switch { display: inline-flex; align-items: center; cursor: pointer; padding: 4px; }
+    .channel-body { display: none; padding: 4px 16px 16px; border-top: 1px solid var(--line); }
+    .channel-body .form-grid { padding-top: 14px; }
+    .channel-card.active .channel-body, .channel-card.expanded .channel-body { display: block; }
+    .channel-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
+    .channel-foot .eyebrow { min-width: 0; }
+
+    /* 备份与恢复 */
+    .backup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .backup-pane { display: flex; flex-direction: column; gap: 12px; padding: 18px; }
+    .backup-pane h3 { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; }
+    .backup-pane .pane-actions { margin-top: auto; padding-top: 4px; display: flex; }
+    .file-drop { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px dashed color-mix(in srgb, var(--line) 40%, var(--muted)); border-radius: 14px; background: var(--card); }
+    .mode-control .seg { width: 100%; }
+    .mode-control .seg > label { flex: 1; }
+    #importReplaceWarning { margin-top: 8px; }
+
+    #floatingSaveBar { position: fixed; left: 50%; bottom: 22px; z-index: 50; transform: translate(-50%, 140%); display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; border-radius: 999px; background: var(--ink); color: var(--card); box-shadow: var(--shadow-pop); transition: transform .25s ease; max-width: calc(100vw - 24px); }
+    #floatingSaveBar.show { transform: translate(-50%, 0); }
+    #floatingSaveBar .msg { font-size: 13.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 8px; }
+    #floatingSaveBar .msg .icon { color: var(--brand-amber); }
+    #floatingSaveBar .btn { background: var(--card); color: var(--ink); border-color: var(--card); }
+
+    @media (max-width: 1023px) {
+      .config-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .config-nav { position: static; display: flex; overflow-x: auto; scrollbar-width: none; border-radius: 16px; }
+      .config-nav::-webkit-scrollbar { display: none; }
     }
-    .toast {
-      padding: 12px 36px 12px 16px; border-radius: 8px; position: relative;
-      color: white; font-weight: 500; transform: translateX(400px);
-      transition: all 0.3s ease-in-out; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    @media (max-width: 900px) {
+      #floatingSaveBar { bottom: 80px; }
     }
-    .toast .toast-close {
-      position: absolute; top: 8px; right: 10px; cursor: pointer;
-      opacity: 0.7; font-size: 14px; line-height: 1;
-    }
-    .toast .toast-close:hover { opacity: 1; }
-    .toast.show { transform: translateX(0); }
-    .toast.success { background-color: #10b981; }
-    .toast.error { background-color: #ef4444; }
-    .toast.info { background-color: #3b82f6; }
-    .toast.warning { background-color: #f59e0b; }
-    html.dark .toast {
-      color: #f9fafb;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-    }
-    html.dark .toast.success { background-color: #059669; }
-    html.dark .toast.error { background-color: #dc2626; }
-    html.dark .toast.info { background-color: #2563eb; }
-    html.dark .toast.warning { background-color: #d97706; }
-    html.dark #floatingSaveBar { background-color: #1f2937; border-color: #374151; }
-    html.dark #floatingSaveBar span { color: #d1d5db; }
-    
-    .config-section { 
-      border: 1px solid #e5e7eb; 
-      border-radius: 8px; 
-      padding: 16px; 
-      margin-bottom: 24px; 
-    }
-    .config-section.active { 
-      background-color: #f8fafc; 
-      border-color: #6366f1; 
-    }
-    .config-section.inactive { 
-      background-color: #f9fafb; 
-      opacity: 0.7; 
-    }
-    /* === Config Page 暗黑模式修复 === */
-    html.dark .config-section {
-      border-color: #374151;
-    }
-    html.dark .config-section.active {
-      background-color: rgba(31, 41, 55, 0.5); /* #1f2937 with opacity */
-      border-color: #818cf8;
-    }
-    html.dark .config-section.inactive {
-      background-color: #111827;
-      opacity: 0.5;
-    }
-    html.dark .bg-indigo-50 {
-        background-color: rgba(55, 65, 81, 0.5) !important; /* 深灰色带透明 */
-        border-color: #4b5563 !important;
-    }
-    html.dark .text-indigo-700 {
-        color: #a5b4fc !important; /* 浅靛蓝 */
+    @media (max-width: 640px) {
+      .config-card { padding: 18px 16px; }
+      .form-grid, .backup-grid { grid-template-columns: minmax(0, 1fr); }
+      .channel-grid { grid-template-columns: minmax(0, 1fr); }
+      .channel-foot { flex-direction: column; align-items: stretch; }
+      .channel-foot .btn { width: 100%; }
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div id="toast-container"></div>
+<body>
+  <!--ICON_SPRITE-->
+  <div id="toast-container" aria-live="polite"></div>
+  <!--APP_HEADER:config-->
 
-  <nav class="bg-white shadow-md relative z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex items-center shrink-0">
-          <div class="flex items-center">
-            <i class="fas fa-calendar-check text-indigo-600 text-2xl mr-2"></i>
-            <span class="font-bold text-xl text-gray-800">订阅管理系统</span>
-          </div>
-          <span id="systemTimeDisplay" class="ml-4 text-base text-indigo-600 font-normal hidden md:block pt-1"></span>
-        </div>
-          
-        <div class="hidden md:flex items-center space-x-4 ml-auto">
-          <a href="/admin/dashboard" class="text-gray-700 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-chart-line mr-1"></i>仪表盘
-          </a>
-          <a href="/admin" class="text-gray-700 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-list mr-1"></i>订阅列表
-          </a>
-          <a href="/admin/notify-logs" class="text-gray-700 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-history mr-1"></i>通知历史
-          </a>
-          <a href="/admin/config" class="text-indigo-600 border-b-2 border-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-cog mr-1"></i>系统配置
-          </a>
-          <a href="/api/logout" class="text-gray-700 hover:text-red-600 border-b-2 border-transparent hover:border-red-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-sign-out-alt mr-1"></i>退出登录
-          </a>
-        </div>
-
-        <div class="flex items-center md:hidden ml-auto">
-          <button id="mobile-menu-btn" type="button" aria-expanded="false" aria-label="切换导航菜单" class="text-gray-600 hover:text-indigo-600 focus:outline-none p-2 rounded-md hover:bg-gray-100 active:bg-gray-200 transition-colors">
-            <i class="fas fa-bars text-xl"></i>
-          </button>
-        </div>
+  <main class="main main-narrow">
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">账户、时区、通知渠道与数据</div>
+        <h1 class="page-title">系统配置</h1>
+        <p class="page-sub">修改后点击「保存配置」生效；密钥类字段不会回显，留空表示保持不变。</p>
       </div>
     </div>
 
-    <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-b border-gray-200 w-full">
-      <div class="px-4 pt-2 pb-4 space-y-2">
-        <div id="mobileTimeDisplay" class="px-3 py-2 text-xs text-indigo-600 text-right border-b border-gray-100 mb-2"></div>
-        <a href="/admin/dashboard" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-chart-line w-6 text-center mr-2"></i>仪表盘
-        </a>
-        <a href="/admin" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-list w-6 text-center mr-2"></i>订阅列表
-        </a>
-        <a href="/admin/notify-logs" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-history w-6 text-center mr-2"></i>通知历史
-        </a>
-        <a href="/admin/config" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-cog w-6 text-center mr-2"></i>系统配置
-        </a>
-        <a href="/api/logout" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 active:bg-red-100 transition-colors">
-          <i class="fas fa-sign-out-alt w-6 text-center mr-2"></i>退出登录
-        </a>
-      </div>
+    <div id="tzMismatchBanner" class="banner banner-warn mb-5 hidden" role="status">
+      <svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>
+      <div id="tzMismatchText"></div>
     </div>
-  </nav>
-  
-  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="bg-white rounded-lg shadow-md p-6">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">系统配置</h2>
-      <div id="defaultPasswordBanner" class="hidden mb-4 p-3 rounded-md border border-amber-300 bg-amber-50 text-amber-900 text-sm">
-        <i class="fas fa-exclamation-triangle mr-1"></i>
-        检测到仍可能使用默认管理员密码。请立即修改下方「管理员密码」并保存，避免公网被接管。
-      </div>
-      
-      <form id="configForm" class="space-y-8">
-        <div class="border-b border-gray-200 pb-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">管理员账户</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="adminUsername" class="block text-sm font-medium text-gray-700">用户名</label>
-              <input type="text" id="adminUsername" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-            </div>
-            <div>
-              <label for="adminPassword" class="block text-sm font-medium text-gray-700">密码</label>
-              <input type="password" id="adminPassword" placeholder="如不修改密码，请留空" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              <p class="mt-1 text-sm text-gray-500">留空表示不修改当前密码</p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="border-b border-gray-200 pb-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">显示设置</h3>
-          
-          <div class="mb-6">
-            <label for="themeModeSelect" class="block text-sm font-medium text-gray-700 mb-1">主题模式</label>
-            <select id="themeModeSelect" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white sm:text-sm">
-              <option value="light">🌞 浅色模式</option>
-              <option value="dark">🌙 暗黑模式</option>
-              <option value="system">🖥️ 跟随系统</option>
-            </select>
-            <p class="mt-1 text-sm text-gray-500">选择系统的外观风格</p>
-          </div>
-          
-          <div class="mb-6">
-            <label class="inline-flex items-center">
-              <input type="checkbox" id="showLunarGlobal" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-              <span class="ml-2 text-sm text-gray-700">在通知中显示农历日期</span>
-            </label>
-            <p class="mt-1 text-sm text-gray-500">控制是否在通知消息中包含农历日期信息</p>
-          </div>
-        </div>
 
+    <div class="config-layout">
+      <nav class="card config-nav" aria-label="配置分区">
+        <a href="#account" class="active"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg>账户</a>
+        <a href="#display"><svg class="icon" aria-hidden="true"><use href="#i-palette"/></svg>显示</a>
+        <a href="#time"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>时区与发送</a>
+        <a href="#channels"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>通知渠道</a>
+        <a href="#api"><svg class="icon" aria-hidden="true"><use href="#i-key"/></svg>第三方 API</a>
+        <a href="#advanced"><svg class="icon" aria-hidden="true"><use href="#i-bug"/></svg>高级</a>
+        <a href="#backup"><svg class="icon" aria-hidden="true"><use href="#i-database"/></svg>备份与恢复</a>
+      </nav>
 
-        <div class="border-b border-gray-200 pb-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">时区设置</h3>
-          <div class="mb-6">
-          <label for="timezone" class="block text-sm font-medium text-gray-700 mb-1">时区选择</label>
-          <select id="timezone" name="timezone" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+      <div class="config-stack">
+        <form id="configForm" class="config-stack" novalidate>
+          <section id="account" class="card config-card">
+            <div class="config-card-head">
+              <div><h2>管理员账户</h2><p>保护你的 SubsTracker 控制台</p></div>
+            </div>
+            <div id="defaultPasswordBanner" class="banner banner-warn mb-4 hidden">
+              <svg class="icon" aria-hidden="true"><use href="#i-alert-triangle"/></svg>
+              <div>检测到仍可能使用默认管理员密码。请立即修改下方「密码」并保存，避免公网被接管。</div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="adminUsername" class="label">用户名</label>
+                <input type="text" id="adminUsername" autocomplete="username">
+              </div>
+              <div class="field">
+                <label for="adminPassword" class="label">新密码</label>
+                <input type="password" id="adminPassword" placeholder="如不修改密码，请留空" autocomplete="new-password">
+                <p class="hint">留空表示不修改当前密码</p>
+              </div>
+            </div>
+          </section>
+
+          <section id="display" class="card config-card">
+            <div class="config-card-head">
+              <div><h2>显示</h2><p>外观与通知内容</p></div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="themeModeSelect" class="label">主题模式</label>
+                <select id="themeModeSelect">
+                  <option value="system">跟随系统</option>
+                  <option value="light">浅色</option>
+                  <option value="dark">深色</option>
+                </select>
+                <p class="hint">保存后同步到所有设备；顶栏按钮可在本机临时切换。</p>
+              </div>
+              <div class="field">
+                <span class="label">农历</span>
+                <label class="check-row" for="showLunarGlobal"><input type="checkbox" id="showLunarGlobal" class="switch" checked>在通知中显示农历日期</label>
+                <p class="hint mt-1">控制通知消息中是否包含农历日期信息</p>
+              </div>
+            </div>
+          </section>
+
+          <section id="time" class="card config-card">
+            <div class="config-card-head">
+              <div><h2>时区与发送时间</h2><p>所有到期判断、剩余天数与通知时段都按此时区计算</p></div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="timezone" class="label">时区</label>
+                <select id="timezone" name="timezone">
             <optgroup label="🇨🇳 推荐">
               <option value="Asia/Shanghai">中国标准时间（UTC+8）</option>
             </optgroup>
@@ -211,574 +185,520 @@
               <option value="Pacific/Auckland">奥克兰时间（UTC+12）</option>
             </optgroup>
           </select>
-            <p class="mt-1 text-sm text-gray-500">所有时间相关的判断（通知时段、剩余天数、日期显示）都按此时区计算。中国用户保持默认 <code>Asia/Shanghai</code> 即可。</p>
-          </div>
-        </div>
+                <p class="hint">中国用户保持默认 <code>Asia/Shanghai</code> 即可。</p>
+              </div>
+              <div class="field">
+                <label for="notificationHours" class="label">允许发送的小时 <span id="tzLabelInline" class="secret-status">（按下方时区）</span></label>
+                <input type="text" id="notificationHours" placeholder="例如：8 或 08, 12, 20；留空或 * = 每小时都可发">
+                <p class="hint">填 0–23 的整点（可多个，逗号分隔）；留空或 * 表示每个整点都可以发。</p>
+              </div>
+              <div class="field span-2">
+                <div id="tzWindowPreview" class="panel p-3"></div>
+              </div>
+              <details class="field span-2 panel px-4 py-3">
+                <summary class="text-sm font-medium flex items-center gap-2" style="list-style:none"><svg class="icon" aria-hidden="true" style="color:var(--amber)"><use href="#i-lightbulb"/></svg>怎么理解发送时段？</summary>
+                <ul class="list-disc pl-5 mt-2 grid gap-1 text-sm" style="color:var(--muted)">
+                  <li>上面选的<strong>时区</strong>决定「现在几点」——中国用户一般选 <b>Asia/Shanghai（北京时间）</b>。</li>
+                  <li>填 <code>08</code> = 只在<strong>北京时间早上 8 点那一小时</strong>发（约 8:00–8:59）。</li>
+                  <li>现在若是 19 点，填了 08，则<strong>不会发</strong>，任务历史会写「不在允许发送的小时」——这是正常的。</li>
+                  <li>多个小时只是允许发送的时间窗口；同一订阅的同一日级规则当天成功发送后不会再次发送。</li>
+                </ul>
+              </details>
+            </div>
+          </section>
 
-        
-        <div class="border-b border-gray-200 pb-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">通知设置</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <section id="channels" class="card config-card">
+            <div class="config-card-head">
+              <div><h2>通知渠道</h2><p>打开开关即启用（可多选）；点击渠道名称可展开配置</p></div>
+              <span id="channelsEnabledCount" class="badge badge-ok">–</span>
+            </div>
+            <div class="channel-grid">
+
+            <div id="telegramConfig" class="config-section channel-card" data-channel="telegram">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">TG</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="telegramConfigBody">
+                  <span class="channel-name">Telegram</span>
+                  <span class="channel-desc">Bot Token · Chat ID</span>
+                </button>
+                <a href="https://core.telegram.org/bots" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="Telegram 官网 / 文档" aria-label="Telegram 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 Telegram"><input type="checkbox" name="enabledNotifiers" value="telegram" class="switch" aria-label="启用 Telegram"></label>
+              </div>
+              <div class="channel-body" id="telegramConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="tgBotToken" class="label">Bot Token</label>
+                  <div class="secret-row">
+                    <input type="text" id="tgBotToken" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearTgBotToken" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="TG_BOT_TOKENStatus" class="secret-status">加载中...</span></p>
+                </div><div class="field">
+                  <label for="tgChatId" class="label">Chat ID</label>
+                  <input type="text" id="tgChatId" placeholder="可从 @userinfobot 获取">
+                  
+                </div><div class="field">
+                  <label for="tgTopicId" class="label">Topic ID（可选）</label>
+                  <input type="text" id="tgTopicId" placeholder="Forum 群组话题 ID，对应 message_thread_id">
+                  <p class="hint">仅在开启 Topics 的群组中填写；留空则发送到普通会话/群组。</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testTelegramBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="notifyxConfig" class="config-section channel-card" data-channel="notifyx">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">NX</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="notifyxConfigBody">
+                  <span class="channel-name">NotifyX</span>
+                  <span class="channel-desc">API Key</span>
+                </button>
+                <a href="https://www.notifyx.cn/" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="NotifyX 官网 / 文档" aria-label="NotifyX 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 NotifyX"><input type="checkbox" name="enabledNotifiers" value="notifyx" class="switch" aria-label="启用 NotifyX" checked></label>
+              </div>
+              <div class="channel-body" id="notifyxConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="notifyxApiKey" class="label">API Key</label>
+                  <div class="secret-row">
+                    <input type="text" id="notifyxApiKey" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearNotifyxApiKey" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="NOTIFYX_API_KEYStatus" class="secret-status">加载中...</span> · 从 <a href="https://www.notifyx.cn/" target="_blank" rel="noopener" class="link">NotifyX 平台</a> 获取</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testNotifyXBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="webhookConfig" class="config-section channel-card" data-channel="webhook">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">WH</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="webhookConfigBody">
+                  <span class="channel-name">Webhook</span>
+                  <span class="channel-desc">自定义 HTTP 推送</span>
+                </button>
+                <a href="https://webhook.site" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="Webhook 官网 / 文档" aria-label="Webhook 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 Webhook"><input type="checkbox" name="enabledNotifiers" value="webhook" class="switch" aria-label="启用 Webhook"></label>
+              </div>
+              <div class="channel-body" id="webhookConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="webhookUrl" class="label">Webhook URL</label>
+                  <div class="secret-row">
+                    <input type="text" id="webhookUrl" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearWebhookUrl" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="WEBHOOK_URLStatus" class="secret-status">加载中...</span> · 例如 <code>https://your-webhook-endpoint.com/path</code></p>
+                </div><div class="field span-2">
+                  <label for="webhookMethod" class="label">请求方法</label>
+                  <select id="webhookMethod"><option value="POST">POST</option><option value="GET">GET</option><option value="PUT">PUT</option></select>
+                  
+                </div><div class="field span-2">
+                  <label for="webhookHeaders" class="label">自定义请求头（JSON，可选）</label>
+                  <div class="secret-row secret-row-top">
+                    <textarea id="webhookHeaders" rows="3" placeholder='留空表示不修改；输入新值将更新' autocomplete="off"></textarea>
+                    <button type="button" id="clearWebhookHeaders" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="WEBHOOK_HEADERSStatus" class="secret-status">加载中...</span> · 留空使用默认</p>
+                </div><div class="field span-2">
+                  <label for="webhookTemplate" class="label">消息模板（JSON，可选）</label>
+                  <textarea id="webhookTemplate" rows="4" placeholder='{"title": "{{title}}", "content": "{{content}}", "timestamp": "{{timestamp}}"}' spellcheck="false"></textarea>
+                  <p class="hint">支持变量 {{title}}、{{content}}、{{timestamp}}；留空使用默认格式</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testWebhookBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="wechatbotConfig" class="config-section channel-card" data-channel="wechatbot">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">企</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="wechatbotConfigBody">
+                  <span class="channel-name">企业微信机器人</span>
+                  <span class="channel-desc">群机器人 Webhook</span>
+                </button>
+                <a href="https://developer.work.weixin.qq.com/document/path/91770" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="企业微信机器人 官网 / 文档" aria-label="企业微信机器人 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 企业微信机器人"><input type="checkbox" name="enabledNotifiers" value="wechatbot" class="switch" aria-label="启用 企业微信机器人"></label>
+              </div>
+              <div class="channel-body" id="wechatbotConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="wechatbotWebhook" class="label">机器人 Webhook URL</label>
+                  <div class="secret-row">
+                    <input type="text" id="wechatbotWebhook" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearWechatbotWebhook" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="WECHATBOT_WEBHOOKStatus" class="secret-status">加载中...</span> · 从企业微信群聊中添加机器人获取</p>
+                </div><div class="field">
+                  <label for="wechatbotMsgType" class="label">消息类型</label>
+                  <select id="wechatbotMsgType"><option value="text">文本消息</option><option value="markdown">Markdown 消息</option></select>
+                  
+                </div><div class="field">
+                  <label for="wechatbotAtMobiles" class="label">@手机号（可选）</label>
+                  <input type="text" id="wechatbotAtMobiles" placeholder="13800138000,13900139000">
+                  <p class="hint">多个用逗号分隔，留空则不 @ 任何人</p>
+                </div><div class="field span-2">
+                  <label class="check-row" for="wechatbotAtAll"><input type="checkbox" id="wechatbotAtAll">发送消息时 @所有人</label>
+                  
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testWechatBotBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="emailConfig" class="config-section channel-card" data-channel="email">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">@</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="emailConfigBody">
+                  <span class="channel-name">邮件（Resend）</span>
+                  <span class="channel-desc">API Key · 收件地址</span>
+                </button>
+                <a href="https://developers.cloudflare.com/workers/tutorials/send-emails-with-resend/" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="邮件（Resend） 官网 / 文档" aria-label="邮件（Resend） 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 邮件（Resend）"><input type="checkbox" name="enabledNotifiers" value="email" class="switch" aria-label="启用 邮件（Resend）"></label>
+              </div>
+              <div class="channel-body" id="emailConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="resendApiKey" class="label">Resend API Key</label>
+                  <div class="secret-row">
+                    <input type="text" id="resendApiKey" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearResendApiKey" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="RESEND_API_KEYStatus" class="secret-status">加载中...</span> · 从 <a href="https://resend.com/api-keys" target="_blank" rel="noopener" class="link">Resend 控制台</a> 获取</p>
+                </div><div class="field">
+                  <label for="emailFrom" class="label">发件人邮箱</label>
+                  <input type="email" id="emailFrom" placeholder="noreply@yourdomain.com">
+                  <p class="hint">必须是已在 Resend 验证的域名邮箱</p>
+                </div><div class="field">
+                  <label for="emailFromName" class="label">发件人名称</label>
+                  <input type="text" id="emailFromName" placeholder="订阅提醒系统">
+                  <p class="hint">显示在邮件中的发件人名称</p>
+                </div><div class="field span-2">
+                  <label for="emailTo" class="label">收件人邮箱</label>
+                  <input type="email" id="emailTo" placeholder="user@example.com">
+                  <p class="hint">接收通知邮件的邮箱地址</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testEmailBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="barkConfig" class="config-section channel-card" data-channel="bark">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">B</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="barkConfigBody">
+                  <span class="channel-name">Bark</span>
+                  <span class="channel-desc">iOS 推送</span>
+                </button>
+                <a href="https://apps.apple.com/cn/app/bark-customed-notifications/id1403753865" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="Bark 官网 / 文档" aria-label="Bark 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 Bark"><input type="checkbox" name="enabledNotifiers" value="bark" class="switch" aria-label="启用 Bark"></label>
+              </div>
+              <div class="channel-body" id="barkConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="barkServer" class="label">服务器地址</label>
+                  <input type="url" id="barkServer" placeholder="https://api.day.app">
+                  <p class="hint">默认官方服务器，也可使用自建服务器</p>
+                </div><div class="field span-2">
+                  <label for="barkDeviceKey" class="label">设备 Key</label>
+                  <div class="secret-row">
+                    <input type="text" id="barkDeviceKey" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearBarkDeviceKey" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="BARK_DEVICE_KEYStatus" class="secret-status">加载中...</span> · 从 <a href="https://apps.apple.com/cn/app/bark-customed-notifications/id1403753865" target="_blank" rel="noopener" class="link">Bark iOS 应用</a> 获取</p>
+                </div><div class="field span-2">
+                  <label class="check-row" for="barkIsArchive"><input type="checkbox" id="barkIsArchive">保存推送到历史记录</label>
+                  <p class="hint mt-0">勾选后推送消息会保存到 Bark 的历史记录中</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testBarkBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="gotifyConfig" class="config-section channel-card" data-channel="gotify">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">G</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="gotifyConfigBody">
+                  <span class="channel-name">Gotify</span>
+                  <span class="channel-desc">自建推送服务</span>
+                </button>
+                <a href="https://gotify.net/" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="Gotify 官网 / 文档" aria-label="Gotify 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 Gotify"><input type="checkbox" name="enabledNotifiers" value="gotify" class="switch" aria-label="启用 Gotify"></label>
+              </div>
+              <div class="channel-body" id="gotifyConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="gotifyServerUrl" class="label">Server URL</label>
+                  <input type="url" id="gotifyServerUrl" placeholder="https://gotify.example.com">
+                  <p class="hint">你的 Gotify 服务地址（不需要带 /message）</p>
+                </div><div class="field span-2">
+                  <label for="gotifyAppToken" class="label">Application Token</label>
+                  <div class="secret-row">
+                    <input type="text" id="gotifyAppToken" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearGotifyAppToken" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="GOTIFY_APP_TOKENStatus" class="secret-status">加载中...</span></p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testGotifyBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="ntfyConfig" class="config-section channel-card" data-channel="ntfy">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">N</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="ntfyConfigBody">
+                  <span class="channel-name">ntfy</span>
+                  <span class="channel-desc">主题订阅推送</span>
+                </button>
+                <a href="https://ntfy.sh" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="ntfy 官网 / 文档" aria-label="ntfy 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 ntfy"><input type="checkbox" name="enabledNotifiers" value="ntfy" class="switch" aria-label="启用 ntfy"></label>
+              </div>
+              <div class="channel-body" id="ntfyConfigBody">
+                <div class="form-grid">
+                <div class="field">
+                  <label for="ntfyServer" class="label">Server URL</label>
+                  <input type="url" id="ntfyServer" placeholder="https://ntfy.sh">
+                  <p class="hint">公共服务器可用 https://ntfy.sh，也可填自建地址</p>
+                </div><div class="field">
+                  <label for="ntfyTopic" class="label">Topic（主题）</label>
+                  <input type="text" id="ntfyTopic" placeholder="例如 my-substracker-alerts">
+                  
+                </div><div class="field span-2">
+                  <label for="ntfyToken" class="label">Access Token（可选）</label>
+                  <div class="secret-row">
+                    <input type="text" id="ntfyToken" placeholder="留空表示不修改；受保护主题时填写" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearNtfyToken" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="NTFY_TOKENStatus" class="secret-status">加载中...</span></p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testNtfyBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="serverchanConfig" class="config-section channel-card" data-channel="serverchan">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">S</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="serverchanConfigBody">
+                  <span class="channel-name">Server酱</span>
+                  <span class="channel-desc">微信推送</span>
+                </button>
+                <a href="https://sct.ftqq.com/" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="Server酱 官网 / 文档" aria-label="Server酱 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 Server酱"><input type="checkbox" name="enabledNotifiers" value="serverchan" class="switch" aria-label="启用 Server酱"></label>
+              </div>
+              <div class="channel-body" id="serverchanConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="serverchanSendKey" class="label">SendKey</label>
+                  <div class="secret-row">
+                    <input type="text" id="serverchanSendKey" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearServerchanSendKey" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="SERVERCHAN_SENDKEYStatus" class="secret-status">加载中...</span> · 从 <a href="https://sct.ftqq.com/" target="_blank" rel="noopener" class="link">Server酱</a> 获取</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testServerchanBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="pushplusConfig" class="config-section channel-card" data-channel="pushplus">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">P+</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="pushplusConfigBody">
+                  <span class="channel-name">PushPlus</span>
+                  <span class="channel-desc">微信 / 邮件 / 短信</span>
+                </button>
+                <a href="https://www.pushplus.plus/" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="PushPlus 官网 / 文档" aria-label="PushPlus 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 PushPlus"><input type="checkbox" name="enabledNotifiers" value="pushplus" class="switch" aria-label="启用 PushPlus"></label>
+              </div>
+              <div class="channel-body" id="pushplusConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="pushplusToken" class="label">Token</label>
+                  <div class="secret-row">
+                    <input type="text" id="pushplusToken" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearPushplusToken" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="PUSHPLUS_TOKENStatus" class="secret-status">加载中...</span></p>
+                </div><div class="field">
+                  <label for="pushplusTopic" class="label">群组编码 Topic（可选）</label>
+                  <input type="text" id="pushplusTopic" placeholder="留空则发送到个人渠道">
+                  
+                </div><div class="field">
+                  <label for="pushplusChannel" class="label">渠道（可选）</label>
+                  <select id="pushplusChannel"><option value="">默认</option><option value="wechat">微信公众号</option><option value="mail">邮件</option><option value="sms">短信</option><option value="webhook">Webhook</option></select>
+                  <p class="hint">以 PushPlus 平台支持情况为准</p>
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testPushplusBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            <div id="wpushConfig" class="config-section channel-card" data-channel="wpush">
+              <div class="channel-head">
+                <span class="channel-avatar" aria-hidden="true">W</span>
+                <button type="button" class="channel-meta channel-expand" aria-expanded="false" aria-controls="wpushConfigBody">
+                  <span class="channel-name">WPUSH</span>
+                  <span class="channel-desc">多渠道推送</span>
+                </button>
+                <a href="https://wpush.cn/" target="_blank" rel="noopener" class="icon-btn ghost sm channel-link" title="WPUSH 官网 / 文档" aria-label="WPUSH 官网 / 文档"><svg class="icon" aria-hidden="true"><use href="#i-external-link"/></svg></a>
+                <label class="channel-switch" title="启用 WPUSH"><input type="checkbox" name="enabledNotifiers" value="wpush" class="switch" aria-label="启用 WPUSH"></label>
+              </div>
+              <div class="channel-body" id="wpushConfigBody">
+                <div class="form-grid">
+                <div class="field span-2">
+                  <label for="wpushApikey" class="label">API Key</label>
+                  <div class="secret-row">
+                    <input type="text" id="wpushApikey" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+                    <button type="button" id="clearWpushApikey" class="btn btn-sm btn-warn" title="保存时清空此项"><svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空</button>
+                  </div>
+                  <p class="hint"><span id="WPUSH_APIKEYStatus" class="secret-status">加载中...</span> · 从 <a href="https://wpush.cn/settings" target="_blank" rel="noopener" class="link">WPUSH 设置页</a> 获取</p>
+                </div><div class="field">
+                  <label for="wpushChannel" class="label">渠道（可选）</label>
+                  <select id="wpushChannel"><option value="">默认</option><option value="wechat">微信公众号</option><option value="app">App</option><option value="sms">短信</option><option value="mail">邮件</option><option value="webhook">Webhook</option><option value="dingtalk">钉钉</option><option value="feishu">飞书</option><option value="wechat_work">企业微信</option><option value="clawbot">微信 ClawBot</option><option value="qqbot">QQ 机器人</option></select>
+                  <p class="hint">以 <a href="https://wpush.cn/docs" target="_blank" rel="noopener" class="link">WPUSH 文档</a> 为准</p>
+                </div><div class="field">
+                  <label for="wpushTopicCode" class="label">Topic 编码（可选）</label>
+                  <input type="text" id="wpushTopicCode" placeholder="留空则按个人渠道推送">
+                  
+                </div>
+                </div>
+                <div class="channel-foot">
+                  <span class="eyebrow">测试会使用当前输入；未填写的密钥将使用已保存的值</span>
+                  <button type="button" id="testWpushBtn" class="btn btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>测试</button>
+                </div>
+              </div>
+            </div>
+            </div>
+          </section>
+
+          <section id="api" class="card config-card">
+            <div class="config-card-head">
+              <div><h2>第三方 API</h2><p>调用 <code>/api/notify/{token}</code> 时需携带此令牌；留空表示禁用第三方 API 推送</p></div>
+            </div>
+            <label for="thirdPartyToken" class="label">访问令牌</label>
+            <div class="secret-row">
+              <input type="text" id="thirdPartyToken" placeholder="留空表示不修改；输入新值将更新" autocomplete="off" spellcheck="false">
+              <button type="button" id="generateThirdPartyToken" class="btn btn-sm">
+                <svg class="icon" aria-hidden="true"><use href="#i-wand"/></svg>生成令牌
+              </button>
+              <button type="button" id="clearThirdPartyToken" class="btn btn-sm btn-warn">
+                <svg class="icon" aria-hidden="true"><use href="#i-eraser"/></svg>清空
+              </button>
+            </div>
+            <p class="hint"><span id="THIRD_PARTY_API_TOKENStatus" class="secret-status">加载中...</span></p>
+          </section>
+
+          <section id="advanced" class="card config-card">
+            <div class="config-card-head">
+              <div><h2>高级</h2><p>调试与数据保留</p></div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <span class="label">调试设置</span>
+                <label class="check-row" for="debugLogs"><input type="checkbox" id="debugLogs" class="switch">开启调试日志（影响控制台输出）</label>
+              </div>
+              <div class="field">
+                <label for="paymentHistoryLimit" class="label">支付历史保留条数</label>
+                <input type="number" id="paymentHistoryLimit" min="10" max="1000" step="1" placeholder="默认 100">
+                <p class="hint">续订后仅保留最近 N 条支付历史（建议 50~200，默认 100）。</p>
+              </div>
+            </div>
+          </section>
+
+          <div class="card config-card flex items-center justify-between gap-3 flex-wrap" style="padding:16px 20px">
+            <span class="eyebrow">以上设置在点击保存后生效</span>
+            <button type="submit" class="btn btn-primary">
+              <svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>保存配置
+            </button>
+          </div>
+        </form>
+
+        <!-- 备份与恢复（不在 configForm 内，避免触发表单提交） -->
+        <section id="backup" class="card config-card">
+          <div class="config-card-head">
             <div>
-              <label for="notificationHours" class="block text-sm font-medium text-gray-700">
-                允许发送的小时
-                <span id="tzLabelInline" class="text-indigo-600 font-semibold">（按下方时区）</span>
-              </label>
-              <input type="text" id="notificationHours" placeholder="例如：8 或 08, 12, 20；留空或 * = 每小时都可发"
-                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              <p class="mt-1 text-sm text-gray-500">
-                填 0–23 的整点（可多个，逗号分隔）。系统每小时检查一次：只有「当前整点」落在列表里才会发提醒。
-                <strong>留空或填 *</strong> 表示每个整点都可以发。
-                多个小时只是允许发送的时间窗口；同一订阅的同一日级规则当天成功发送后不会再次发送。
-              </p>
-              <div id="tzWindowPreview" class="mt-2 p-3 rounded-md border border-gray-200 bg-gray-50 text-sm leading-relaxed"></div>
+              <h2>备份与恢复</h2>
+              <p>导出系统配置、订阅列表与提醒规则，便于迁移；默认<strong>不含</strong> Token / API Key 等密钥。</p>
             </div>
-            <div class="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-900">
-              <p class="font-semibold mb-1"><i class="fas fa-lightbulb mr-1"></i>怎么理解？</p>
-              <ul class="list-disc pl-5 space-y-1">
-                <li>上面选的<strong>时区</strong>决定「现在几点」——中国用户一般选 <b>Asia/Shanghai（北京时间）</b>。</li>
-                <li>填 <code>08</code> = 只在<strong>北京时间早上 8 点那一小时</strong>发（约 8:00–8:59）。</li>
-                <li>现在若是 19 点，填了 08，则<strong>不会发</strong>，任务历史会写「不在允许发送的小时」——这是正常的。</li>
-                <li>改完后请点「保存配置」才会生效；下方预览会按输入框内容实时判断。</li>
+          </div>
+
+          <div class="backup-grid">
+            <div class="panel backup-pane">
+              <h3><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>导出备份</h3>
+              <label class="check-row" for="exportIncludeSecrets"><input type="checkbox" id="exportIncludeSecrets">包含敏感配置（Token / 密码等）</label>
+              <p class="hint mt-0" style="color:var(--amber)">勾选后请妥善保管 JSON 文件，勿上传公开仓库。</p>
+              <ul class="grid gap-1.5 text-sm" style="color:var(--muted)">
+                <li class="flex items-center gap-2"><svg class="icon" aria-hidden="true" style="color:var(--green)"><use href="#i-check"/></svg>系统配置（时区、通知时段、渠道参数）</li>
+                <li class="flex items-center gap-2"><svg class="icon" aria-hidden="true" style="color:var(--green)"><use href="#i-check"/></svg>全部订阅与支付记录</li>
+                <li class="flex items-center gap-2"><svg class="icon" aria-hidden="true" style="color:var(--green)"><use href="#i-check"/></svg>提醒规则与分类</li>
               </ul>
-            </div>
-          </div>
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-3">通知方式（可多选）</label>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="telegram" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Telegram</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="notifyx" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" checked>
-                <span class="ml-2 text-sm text-gray-700 font-semibold">NotifyX</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="webhook" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Webhook 通知</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="wechatbot" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">企业微信机器人</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="email" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">邮件通知</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="bark" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Bark</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="gotify" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Gotify</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="serverchan" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">Server酱</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="ntfy" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">ntfy</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="pushplus" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">PushPlus</span>
-              </label>
-              <label class="inline-flex items-center">
-                <input type="checkbox" name="enabledNotifiers" value="wpush" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                <span class="ml-2 text-sm text-gray-700">WPUSH</span>
-              </label>
-            </div>
-            <div class="mt-2 flex flex-wrap gap-4">
-              <a href="https://www.notifyx.cn/" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> NotifyX官网
-              </a>
-              <a href="https://webhook.site" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> Webhook 调试工具
-              </a>
-              <a href="https://developer.work.weixin.qq.com/document/path/91770" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> 企业微信机器人文档
-              </a>
-              <a href="https://developers.cloudflare.com/workers/tutorials/send-emails-with-resend/" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> 获取 Resend API Key
-              </a>
-              <a href="https://apps.apple.com/cn/app/bark-customed-notifications/id1403753865" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> Bark iOS应用
-              </a>
-              <a href="https://sct.ftqq.com/" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> Server酱官网
-              </a>
-              <a href="https://www.pushplus.plus/" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> PushPlus官网
-              </a>
-              <a href="https://wpush.cn/" target="_blank" class="text-indigo-600 hover:text-indigo-800 text-sm">
-                <i class="fas fa-external-link-alt ml-1"></i> WPUSH官网
-              </a>
-            </div>
-          </div>
-
-          <div class="mb-6">
-            <label for="thirdPartyToken" class="block text-sm font-medium text-gray-700">第三方 API 访问令牌</label>
-            <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-              <input type="text" id="thirdPartyToken" placeholder="留空表示不修改；输入新值将更新"
-                class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              <button type="button" id="generateThirdPartyToken" class="btn-info text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                <i class="fas fa-magic mr-2"></i>生成令牌
-              </button>
-              <button type="button" id="clearThirdPartyToken" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                <i class="fas fa-eraser mr-2"></i>清空
-              </button>
-            </div>
-            <p id="THIRD_PARTY_API_TOKENStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-            <p class="mt-1 text-sm text-gray-500">调用 /api/notify/{token} 接口时需携带此令牌；留空表示禁用第三方 API 推送。</p>
-          </div>
-
-          <div class="mb-6">
-            <label class="block text-sm font-medium text-gray-700 mb-3">调试设置</label>
-            <label class="inline-flex items-center cursor-pointer select-none">
-              <input type="checkbox" id="debugLogs" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-              <span class="ml-2 text-sm text-gray-700">开启调试日志（影响控制台输出）</span>
-            </label>
-          </div>
-
-          <div class="mb-6">
-            <label for="paymentHistoryLimit" class="block text-sm font-medium text-gray-700">支付历史保留条数</label>
-            <input type="number" id="paymentHistoryLimit" min="10" max="1000" step="1"
-              class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="默认 100">
-            <p class="mt-1 text-sm text-gray-500">自动续订与手动续订后仅保留最近 N 条支付历史（建议 50~200，默认 100）。</p>
-          </div>
-          
-          <div id="telegramConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">Telegram 配置</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label for="tgBotToken" class="block text-sm font-medium text-gray-700">Bot Token</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="tgBotToken" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearTgBotToken" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="TG_BOT_TOKENStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-              </div>
-              <div>
-                <label for="tgChatId" class="block text-sm font-medium text-gray-700">Chat ID</label>
-                <input type="text" id="tgChatId" placeholder="可从 @userinfobot 获取" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              </div>
-              <div>
-                <label for="tgTopicId" class="block text-sm font-medium text-gray-700">Topic ID（可选）</label>
-                <input type="text" id="tgTopicId" placeholder="Forum 群组话题 ID，对应 message_thread_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-xs text-gray-500">仅在开启 Topics 的群组中填写；留空则发送到普通会话/群组。</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testTelegramBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 Telegram 通知
-              </button>
-            </div>
-          </div>
-          
-          <div id="notifyxConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">NotifyX 配置</h4>
-            <div class="mb-4">
-              <label for="notifyxApiKey" class="block text-sm font-medium text-gray-700">API Key</label>
-              <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                <input type="text" id="notifyxApiKey" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <button type="button" id="clearNotifyxApiKey" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                  <i class="fas fa-eraser mr-2"></i>清空
+              <div class="pane-actions">
+                <button type="button" id="exportBackupBtn" class="btn">
+                  <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>下载备份 JSON
                 </button>
               </div>
-              <p id="NOTIFYX_API_KEYStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-              <p class="mt-1 text-sm text-gray-500">从 <a href="https://www.notifyx.cn/" target="_blank" class="text-indigo-600 hover:text-indigo-800">NotifyX平台</a> 获取的 API Key</p>
             </div>
-            <div class="flex justify-end">
-              <button type="button" id="testNotifyXBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 NotifyX 通知
-              </button>
-            </div>
-          </div>
 
-          <div id="webhookConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">Webhook 通知 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="webhookUrl" class="block text-sm font-medium text-gray-700">Webhook 通知 URL</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="url" id="webhookUrl" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearWebhookUrl" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
+            <div class="panel backup-pane">
+              <h3><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>导入恢复</h3>
+              <div class="file-drop">
+                <label for="importBackupFile" class="label mb-0">备份文件（.json）</label>
+                <input type="file" id="importBackupFile" accept="application/json,.json">
+              </div>
+              <div class="mode-control" role="radiogroup" aria-label="恢复模式">
+                <span class="label">恢复模式</span>
+                <div class="seg">
+                  <label><input type="radio" name="importMode" value="merge" checked>合并</label>
+                  <label class="seg-danger"><input type="radio" name="importMode" value="replace">覆盖（危险）</label>
                 </div>
-                <p id="WEBHOOK_URLStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">请填写自建服务或第三方平台提供的 Webhook 地址，例如 <code>https://your-webhook-endpoint.com/path</code></p>
-              </div>
-              <div>
-                <label for="webhookMethod" class="block text-sm font-medium text-gray-700">请求方法</label>
-                <select id="webhookMethod" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <option value="POST">POST</option>
-                  <option value="GET">GET</option>
-                  <option value="PUT">PUT</option>
-                </select>
-              </div>
-              <div>
-                <label for="webhookHeaders" class="block text-sm font-medium text-gray-700">自定义请求头 (JSON格式，可选)</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-start gap-3">
-                  <textarea id="webhookHeaders" rows="3" placeholder='留空表示不修改；输入新值将更新' class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
-                  <button type="button" id="clearWebhookHeaders" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
+                <p id="importModeHint" class="hint">按 ID 覆盖同名订阅，保留其余。</p>
+                <div id="importReplaceWarning" class="banner banner-danger hidden" role="alert">
+                  <svg class="icon" aria-hidden="true"><use href="#i-alert-triangle"/></svg>
+                  <div>覆盖模式会先<strong>删除当前全部订阅</strong>再整包导入，且不可撤销。建议先导出一份当前数据。</div>
                 </div>
-                <p id="WEBHOOK_HEADERSStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">JSON格式的自定义请求头，留空使用默认</p>
               </div>
-              <div>
-                <label for="webhookTemplate" class="block text-sm font-medium text-gray-700">消息模板 (JSON格式，可选)</label>
-                <textarea id="webhookTemplate" rows="4" placeholder='{"title": "{{title}}", "content": "{{content}}", "timestamp": "{{timestamp}}"}' class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
-                <p class="mt-1 text-sm text-gray-500">支持变量: {{title}}, {{content}}, {{timestamp}}。留空使用默认格式</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testWebhookBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 Webhook 通知
-              </button>
-            </div>
-          </div>
-
-          <div id="wechatbotConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">企业微信机器人 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="wechatbotWebhook" class="block text-sm font-medium text-gray-700">机器人 Webhook URL</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="url" id="wechatbotWebhook" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearWechatbotWebhook" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="WECHATBOT_WEBHOOKStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">从企业微信群聊中添加机器人获取的 Webhook URL</p>
-              </div>
-              <div>
-                <label for="wechatbotMsgType" class="block text-sm font-medium text-gray-700">消息类型</label>
-                <select id="wechatbotMsgType" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <option value="text">文本消息</option>
-                  <option value="markdown">Markdown消息</option>
-                </select>
-                <p class="mt-1 text-sm text-gray-500">选择发送的消息格式类型</p>
-              </div>
-              <div>
-                <label for="wechatbotAtMobiles" class="block text-sm font-medium text-gray-700">@手机号 (可选)</label>
-                <input type="text" id="wechatbotAtMobiles" placeholder="13800138000,13900139000" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">需要@的手机号，多个用逗号分隔，留空则不@任何人</p>
-              </div>
-              <div>
-                <label for="wechatbotAtAll" class="block text-sm font-medium text-gray-700 mb-2">@所有人</label>
-                <label class="inline-flex items-center">
-                  <input type="checkbox" id="wechatbotAtAll" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                  <span class="ml-2 text-sm text-gray-700">发送消息时@所有人</span>
-                </label>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testWechatBotBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 企业微信机器人
-              </button>
-            </div>
-          </div>
-
-          <div id="emailConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">邮件通知 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="resendApiKey" class="block text-sm font-medium text-gray-700">Resend API Key</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="resendApiKey" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearResendApiKey" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="RESEND_API_KEYStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">从 <a href="https://resend.com/api-keys" target="_blank" class="text-indigo-600 hover:text-indigo-800">Resend控制台</a> 获取的 API Key</p>
-              </div>
-              <div>
-                <label for="emailFrom" class="block text-sm font-medium text-gray-700">发件人邮箱</label>
-                <input type="email" id="emailFrom" placeholder="noreply@yourdomain.com" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">必须是已在Resend验证的域名邮箱</p>
-              </div>
-              <div>
-                <label for="emailFromName" class="block text-sm font-medium text-gray-700">发件人名称</label>
-                <input type="text" id="emailFromName" placeholder="订阅提醒系统" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">显示在邮件中的发件人名称</p>
-              </div>
-              <div>
-                <label for="emailTo" class="block text-sm font-medium text-gray-700">收件人邮箱</label>
-                <input type="email" id="emailTo" placeholder="user@example.com" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">接收通知邮件的邮箱地址</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testEmailBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 邮件通知
-              </button>
-            </div>
-          </div>
-
-          <div id="barkConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">Bark 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="barkServer" class="block text-sm font-medium text-gray-700">服务器地址</label>
-                <input type="url" id="barkServer" placeholder="https://api.day.app" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">Bark 服务器地址，默认为官方服务器，也可以使用自建服务器</p>
-              </div>
-              <div>
-                <label for="barkDeviceKey" class="block text-sm font-medium text-gray-700">设备Key</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="barkDeviceKey" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearBarkDeviceKey" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="BARK_DEVICE_KEYStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">从 <a href="https://apps.apple.com/cn/app/bark-customed-notifications/id1403753865" target="_blank" class="text-indigo-600 hover:text-indigo-800">Bark iOS 应用</a> 中获取的设备Key</p>
-              </div>
-              <div>
-                <label for="barkIsArchive" class="block text-sm font-medium text-gray-700 mb-2">保存推送</label>
-                <label class="inline-flex items-center">
-                  <input type="checkbox" id="barkIsArchive" class="form-checkbox h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                  <span class="ml-2 text-sm text-gray-700">保存推送到历史记录</span>
-                </label>
-                <p class="mt-1 text-sm text-gray-500">勾选后推送消息会保存到 Bark 的历史记录中</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testBarkBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 Bark 通知
-              </button>
-            </div>
-          </div>
-
-          <div id="gotifyConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">Gotify 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="gotifyServerUrl" class="block text-sm font-medium text-gray-700">Server URL</label>
-                <input type="url" id="gotifyServerUrl" placeholder="https://gotify.example.com" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">你的 Gotify 服务地址（不需要带 /message）。</p>
-              </div>
-              <label for="gotifyAppToken" class="block text-sm font-medium text-gray-700">Application Token</label>
-              <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                <input type="text" id="gotifyAppToken" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <button type="button" id="clearGotifyAppToken" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                  <i class="fas fa-eraser mr-2"></i>清空
+              <label class="check-row" for="importIncludeSecrets"><input type="checkbox" id="importIncludeSecrets">应用备份中的敏感配置（仅当备份含密钥时有效）</label>
+              <div class="pane-actions">
+                <button type="button" id="importBackupBtn" class="btn btn-primary">
+                  <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>从文件恢复
                 </button>
               </div>
-              <p id="GOTIFY_APP_TOKENStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testGotifyBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 Gotify 通知
-              </button>
             </div>
           </div>
-
-          
-          <div id="ntfyConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">ntfy 配置</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label for="ntfyServer" class="block text-sm font-medium text-gray-700">Server URL</label>
-                <input type="url" id="ntfyServer" placeholder="https://ntfy.sh" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                <p class="mt-1 text-sm text-gray-500">公共服务器可用 https://ntfy.sh，也可填自建地址。</p>
-              </div>
-              <div>
-                <label for="ntfyTopic" class="block text-sm font-medium text-gray-700">Topic（主题）</label>
-                <input type="text" id="ntfyTopic" placeholder="例如 my-substracker-alerts" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              </div>
-              <div class="md:col-span-2">
-                <label for="ntfyToken" class="block text-sm font-medium text-gray-700">Access Token（可选）</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="ntfyToken" placeholder="留空表示不修改；受保护主题时填写" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearNtfyToken" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="NTFY_TOKENStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testNtfyBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 ntfy 通知
-              </button>
-            </div>
-          </div>
-
-<div id="serverchanConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">Server酱 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="serverchanSendKey" class="block text-sm font-medium text-gray-700">SendKey</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="serverchanSendKey" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearServerchanSendKey" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="SERVERCHAN_SENDKEYStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">从 <a href="https://sct.ftqq.com/" target="_blank" class="text-indigo-600 hover:text-indigo-800">Server酱</a> 获取 SendKey</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testServerchanBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 Server酱 通知
-              </button>
-            </div>
-          </div>
-
-          <div id="pushplusConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">PushPlus 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="pushplusToken" class="block text-sm font-medium text-gray-700">Token</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="pushplusToken" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearPushplusToken" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="PUSHPLUS_TOKENStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-              </div>
-              <div>
-                <label for="pushplusTopic" class="block text-sm font-medium text-gray-700">群组编码 Topic（可选）</label>
-                <input type="text" id="pushplusTopic" placeholder="留空则发送到个人渠道" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              </div>
-              <div>
-                <label for="pushplusChannel" class="block text-sm font-medium text-gray-700">渠道（可选）</label>
-                <select id="pushplusChannel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <option value="">默认</option>
-                  <option value="wechat">微信公众号</option>
-                  <option value="mail">邮件</option>
-                  <option value="sms">短信</option>
-                  <option value="webhook">Webhook</option>
-                </select>
-                <p class="mt-1 text-sm text-gray-500">具体可用渠道以 PushPlus 平台支持情况为准</p>
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testPushplusBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 PushPlus 通知
-              </button>
-            </div>
-          </div>
-
-          <div id="wpushConfig" class="config-section">
-            <h4 class="text-md font-medium text-gray-900 mb-3">WPUSH 配置</h4>
-            <div class="grid grid-cols-1 gap-4 mb-4">
-              <div>
-                <label for="wpushApikey" class="block text-sm font-medium text-gray-700">API Key</label>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <input type="text" id="wpushApikey" placeholder="留空表示不修改；输入新值将更新" class="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <button type="button" id="clearWpushApikey" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap">
-                    <i class="fas fa-eraser mr-2"></i>清空
-                  </button>
-                </div>
-                <p id="WPUSH_APIKEYStatus" class="mt-1 text-xs text-gray-500">加载中...</p>
-                <p class="mt-1 text-sm text-gray-500">从 <a href="https://wpush.cn/settings" target="_blank" class="text-indigo-600 hover:text-indigo-800">WPUSH 设置页</a> 获取 API Key</p>
-              </div>
-              <div>
-                <label for="wpushChannel" class="block text-sm font-medium text-gray-700">渠道（可选）</label>
-                <select id="wpushChannel" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                  <option value="">默认</option>
-                  <option value="wechat">微信公众号</option>
-                  <option value="app">App</option>
-                  <option value="sms">短信</option>
-                  <option value="mail">邮件</option>
-                  <option value="webhook">Webhook</option>
-                  <option value="dingtalk">钉钉</option>
-                  <option value="feishu">飞书</option>
-                  <option value="wechat_work">企业微信</option>
-                  <option value="clawbot">微信 ClawBot</option>
-                  <option value="qqbot">QQ 机器人</option>
-                </select>
-                <p class="mt-1 text-sm text-gray-500">具体可用渠道以 <a href="https://wpush.cn/docs" target="_blank" class="text-indigo-600 hover:text-indigo-800">WPUSH 文档</a> 为准</p>
-              </div>
-              <div>
-                <label for="wpushTopicCode" class="block text-sm font-medium text-gray-700">Topic 编码（可选）</label>
-                <input type="text" id="wpushTopicCode" placeholder="留空则按个人渠道推送" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              </div>
-            </div>
-            <div class="flex justify-end">
-              <button type="button" id="testWpushBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-                <i class="fas fa-paper-plane mr-2"></i>测试 WPUSH 通知
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex justify-end">
-          <button type="submit" class="btn-primary text-white px-6 py-2 rounded-md text-sm font-medium">
-            <i class="fas fa-save mr-2"></i>保存配置
-          </button>
-        </div>
-      </form>
-
-      <!-- 备份与恢复（不在 configForm 内，避免触发表单提交） -->
-      <div class="config-section active mt-8" id="backupSection">
-        <h3 class="text-lg font-semibold text-gray-800 mb-2">
-          <i class="fas fa-file-export text-indigo-500 mr-2"></i>数据备份与恢复
-        </h3>
-        <p class="text-sm text-gray-500 mb-4">
-          导出系统配置、订阅列表与提醒规则，便于换账号部署或升级迁移。
-          默认导出<strong>不含</strong> Bot Token / API Key 等密钥；需要时可勾选「包含敏感配置」。
-        </p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-download mr-1"></i>导出备份</h4>
-            <label class="inline-flex items-center text-sm text-gray-700 mb-3 cursor-pointer">
-              <input type="checkbox" id="exportIncludeSecrets" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300">
-              <span class="ml-2">包含敏感配置（Token / 密码等）</span>
-            </label>
-            <p class="text-xs text-amber-600 mb-3">勾选后请妥善保管 JSON 文件，勿上传公开仓库。</p>
-            <button type="button" id="exportBackupBtn" class="btn-secondary text-white px-4 py-2 rounded-md text-sm font-medium">
-              <i class="fas fa-file-download mr-2"></i>下载备份 JSON
-            </button>
-          </div>
-
-          <div class="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 class="text-sm font-semibold text-gray-700 mb-3"><i class="fas fa-upload mr-1"></i>导入恢复</h4>
-            <input type="file" id="importBackupFile" accept="application/json,.json" class="block w-full text-sm text-gray-600 mb-3">
-            <div class="flex flex-col gap-2 mb-3">
-              <label class="inline-flex items-center text-sm text-gray-700 cursor-pointer">
-                <input type="radio" name="importMode" value="merge" class="form-radio h-4 w-4 text-indigo-600" checked>
-                <span class="ml-2">合并（按 ID 覆盖同名订阅，保留其余）</span>
-              </label>
-              <label class="inline-flex items-center text-sm text-gray-700 cursor-pointer">
-                <input type="radio" name="importMode" value="replace" class="form-radio h-4 w-4 text-indigo-600">
-                <span class="ml-2">覆盖（删除现有订阅后整包导入）</span>
-              </label>
-              <label class="inline-flex items-center text-sm text-gray-700 cursor-pointer">
-                <input type="checkbox" id="importIncludeSecrets" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300">
-                <span class="ml-2">应用备份中的敏感配置（仅当备份含密钥时有效）</span>
-              </label>
-            </div>
-            <button type="button" id="importBackupBtn" class="btn-warning text-white px-4 py-2 rounded-md text-sm font-medium">
-              <i class="fas fa-file-import mr-2"></i>从文件恢复
-            </button>
-          </div>
-        </div>
+        </section>
       </div>
     </div>
-  </div>
+  </main>
 
   <!-- 悬浮保存栏 -->
-  <div id="floatingSaveBar" class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg py-3 px-6 flex justify-between items-center z-50 transform translate-y-full transition-transform duration-300" style="display:none;">
-    <span class="text-sm text-gray-600"><i class="fas fa-exclamation-circle text-yellow-500 mr-2"></i>有未保存的更改</span>
-    <button type="button" onclick="document.getElementById('configForm').requestSubmit()" class="btn-primary text-white px-5 py-2 rounded-md text-sm font-medium">
-      <i class="fas fa-save mr-2"></i>保存配置
+  <div id="floatingSaveBar" style="display:none;" role="status">
+    <span class="msg"><svg class="icon" aria-hidden="true"><use href="#i-alert-circle"/></svg>有未保存的更改</span>
+    <button type="button" onclick="document.getElementById('configForm').requestSubmit()" class="btn btn-sm">
+      <svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>保存配置
     </button>
   </div>
 
@@ -797,25 +717,27 @@
     function showToast(message, type = 'success', duration) {
       if (!duration) duration = type === 'error' ? 6000 : type === 'warning' ? 4500 : 3000;
       const container = document.getElementById('toast-container');
+      // 限制最多 5 个 toast
       while (container.children.length >= 5) container.removeChild(container.firstChild);
 
       const toast = document.createElement('div');
       toast.className = 'toast ' + type;
-      
+      toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
       const icon = type === 'success' ? 'check-circle' :
-                   type === 'error' ? 'exclamation-circle' :
-                   type === 'warning' ? 'exclamation-triangle' : 'info-circle';
-      
-      toast.innerHTML = '<div class="flex items-center"><i class="fas fa-' + icon + ' mr-2"></i><span class="toast-msg"></span></div><span class="toast-close" onclick="this.parentElement.remove()">&times;</span>';
+                   type === 'error' ? 'alert-circle' :
+                   type === 'warning' ? 'alert-triangle' : 'info';
+
+      toast.innerHTML = '<span class="toast-icon"><svg class="icon" aria-hidden="true"><use href="#i-' + icon + '"/></svg></span><span class="toast-msg"></span><button type="button" class="toast-close" aria-label="关闭">&times;</button>';
       toast.querySelector('.toast-msg').textContent = message;
-      
+
       container.appendChild(toast);
-      setTimeout(() => toast.classList.add('show'), 50);
+      setTimeout(() => toast.classList.add('show'), 30);
       const timer = setTimeout(() => {
         toast.classList.remove('show');
-        setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 300);
+        setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 250);
       }, duration);
-      toast.querySelector('.toast-close').addEventListener('click', () => clearTimeout(timer));
+      toast.querySelector('.toast-close').addEventListener('click', () => { clearTimeout(timer); toast.remove(); });
     }
 
     // 记录用户是否点击了“清空”某个密钥字段；保存时会提交给后端处理
@@ -841,6 +763,7 @@
       setSecretStatus('SERVERCHAN_SENDKEY', cfg.SERVERCHAN_SENDKEY ? '已配置（已隐藏）' : '未配置');
       setSecretStatus('PUSHPLUS_TOKEN', cfg.PUSHPLUS_TOKEN ? '已配置（已隐藏）' : '未配置');
       setSecretStatus('WPUSH_APIKEY', cfg.WPUSH_APIKEY ? '已配置（已隐藏）' : '未配置');
+      setSecretStatus('NTFY_TOKEN', cfg.NTFY_TOKEN ? '已配置（已隐藏）' : '未配置');
     }
 
     function wireSecretInput(inputId, key) {
@@ -957,6 +880,8 @@
 
         // 动态生成时区选项，并设置保存的值
         generateTimezoneOptions(config.TIMEZONE || 'Asia/Shanghai');
+        window.__savedTimezone = config.TIMEZONE || 'Asia/Shanghai';
+        if (typeof window.__updateTzMismatch === 'function') window.__updateTzMismatch();
 
         // 处理多选通知渠道
         const enabledNotifiers = config.ENABLED_NOTIFIERS || ['notifyx'];
@@ -965,6 +890,7 @@
         });
 
         toggleNotificationConfigs(enabledNotifiers);
+        if (typeof window.__updateChannelCount === 'function') window.__updateChannelCount();
 
         // 配置加载完成后再刷新「是否可发送」预览（避免空输入被当成全天）
         if (typeof window.__refreshNotificationHoursPreview === 'function') {
@@ -1190,7 +1116,7 @@
 
       const submitButton = e.target.querySelector('button[type="submit"]');
       const originalContent = submitButton.innerHTML;
-      submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>保存中...';
+      submitButton.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>保存中...';
       submitButton.disabled = true;
 
       try {
@@ -1204,6 +1130,8 @@
 
         if (result.success) {
           showToast('配置保存成功', 'success');
+          window.__savedTimezone = config.TIMEZONE;
+          if (typeof window.__updateTzMismatch === 'function') window.__updateTzMismatch();
           if (window.updateAppTheme) {    // 保存成功后立即应用主题，无需刷新
             window.updateAppTheme(config.THEME_MODE);
           }
@@ -1260,7 +1188,7 @@
                           type === 'ntfy' ? 'ntfy' :
                           type === 'wpush' ? 'WPUSH' : 'Webhook 通知';
 
-      button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>测试中...';
+      button.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>测试中...';
       button.disabled = true;
 
       const config = {};
@@ -1461,14 +1389,14 @@
         if (!configDirty) {
           configDirty = true;
           floatingBar.style.display = '';
-          requestAnimationFrame(() => floatingBar.style.transform = 'translateY(0)');
+          requestAnimationFrame(() => floatingBar.classList.add('show'));
         }
       });
       form.addEventListener('change', () => {
         if (!configDirty) {
           configDirty = true;
           floatingBar.style.display = '';
-          requestAnimationFrame(() => floatingBar.style.transform = 'translateY(0)');
+          requestAnimationFrame(() => floatingBar.classList.add('show'));
         }
       });
 
@@ -1476,7 +1404,7 @@
       form.addEventListener('submit', () => {
         setTimeout(() => {
           configDirty = false;
-          floatingBar.style.transform = 'translateY(100%)';
+          floatingBar.classList.remove('show');
           setTimeout(() => { floatingBar.style.display = 'none'; }, 300);
         }, 500);
       });
@@ -1596,51 +1524,6 @@
       }
     }
     showSystemTime();
-    // --- 新增：移动端菜单控制脚本 ---
-    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-    const mobileMenu = document.getElementById('mobile-menu');
-    
-    if (mobileMenuBtn && mobileMenu) {
-      const syncMobileMenuState = () => {
-        const icon = mobileMenuBtn.querySelector('i');
-        const isHidden = mobileMenu.classList.contains('hidden');
-        mobileMenuBtn.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
-        if (icon) {
-          icon.classList.toggle('fa-bars', isHidden);
-          icon.classList.toggle('fa-times', !isHidden);
-        }
-      };
-
-      mobileMenuBtn.addEventListener('click', () => {
-        mobileMenu.classList.toggle('hidden');
-        syncMobileMenuState();
-      });
-      
-      mobileMenu.querySelectorAll('a').forEach(link => {
-        link.addEventListener('click', () => {
-          mobileMenu.classList.add('hidden');
-          syncMobileMenuState();
-        });
-      });
-
-      document.addEventListener('click', (event) => {
-        if (mobileMenu.classList.contains('hidden')) return;
-        if (!mobileMenu.contains(event.target) && !mobileMenuBtn.contains(event.target)) {
-          mobileMenu.classList.add('hidden');
-          syncMobileMenuState();
-        }
-      });
-
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !mobileMenu.classList.contains('hidden')) {
-          mobileMenu.classList.add('hidden');
-          syncMobileMenuState();
-        }
-      });
-
-      syncMobileMenuState();
-    }
-
     // ───────────────────────────────────────────────────────
     // 通知小时实时预览（与调度器同一套规则）
     // 注意：必须在 loadConfig 写入输入框之后再刷新，否则会误显示「空=全天」
@@ -1739,12 +1622,12 @@
 
       exportBtn.addEventListener('click', async () => {
         const includeSecrets = document.getElementById('exportIncludeSecrets').checked;
-        if (includeSecrets && !confirm('将导出包含 Token / 密钥的完整备份，请确认文件会安全保存。继续？')) {
+        if (includeSecrets && !(await confirmDialog({ title: '导出包含密钥的备份？', message: '将导出包含 Token / 密钥的完整备份，请确认文件会安全保存。', okText: '继续导出' }))) {
           return;
         }
         const original = exportBtn.innerHTML;
         exportBtn.disabled = true;
-        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>导出中...';
+        exportBtn.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>导出中...';
         try {
           const url = '/api/backup?includeSecrets=' + (includeSecrets ? '1' : '0');
           const res = await apiFetch(url);
@@ -1783,16 +1666,16 @@
         const mode = modeEl ? modeEl.value : 'merge';
         const includeSecrets = document.getElementById('importIncludeSecrets').checked;
 
-        if (mode === 'replace' && !confirm('覆盖模式会删除当前全部订阅后再导入，且不可撤销。确定继续？')) {
+        if (mode === 'replace' && !(await confirmDialog({ title: '覆盖恢复？', message: '覆盖模式会删除当前全部订阅后再导入，且不可撤销。确定继续？', okText: '覆盖并恢复', danger: true }))) {
           return;
         }
-        if (!confirm('确认从备份恢复？建议先导出一份当前数据作为回滚。')) {
+        if (!(await confirmDialog({ title: '从备份恢复？', message: '确认从备份恢复？建议先导出一份当前数据作为回滚。', okText: '开始恢复' }))) {
           return;
         }
 
         const original = importBtn.innerHTML;
         importBtn.disabled = true;
-        importBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>恢复中...';
+        importBtn.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>恢复中...';
         try {
           const text = await file.text();
           let backup;
@@ -1831,6 +1714,124 @@
           importBtn.disabled = false;
           importBtn.innerHTML = original;
         }
+      });
+    })();
+
+    // ───────────────────────────────────────────────────────
+    // 新版界面辅助：渠道卡片展开 / 启用计数 / 时区差异提示 / 恢复模式提示 / 分区导航高亮
+    // ───────────────────────────────────────────────────────
+    (function () {
+      // 渠道卡片：点击名称展开 / 收起（未启用时也可先填写配置）
+      document.querySelectorAll('.channel-card').forEach(function (card) {
+        const toggle = card.querySelector('.channel-expand');
+        if (!toggle) return;
+        toggle.addEventListener('click', function () {
+          if (card.classList.contains('active')) {
+            // 已启用的渠道始终展开；点击名称时聚焦第一个字段
+            const first = card.querySelector('.channel-body input:not([type=checkbox]), .channel-body select, .channel-body textarea');
+            if (first) first.focus();
+            return;
+          }
+          const open = !card.classList.contains('expanded');
+          card.classList.toggle('expanded', open);
+          toggle.setAttribute('aria-expanded', String(open));
+        });
+      });
+
+      function updateChannelCount() {
+        const all = document.querySelectorAll('input[name="enabledNotifiers"]');
+        const on = document.querySelectorAll('input[name="enabledNotifiers"]:checked');
+        const badge = document.getElementById('channelsEnabledCount');
+        if (badge) {
+          badge.textContent = on.length + ' / ' + all.length + ' 已启用';
+          badge.className = 'badge ' + (on.length > 0 ? 'badge-ok' : 'badge-over');
+        }
+        all.forEach(function (cb) {
+          const card = cb.closest('.channel-card');
+          if (!card) return;
+          const t = card.querySelector('.channel-expand');
+          if (t) t.setAttribute('aria-expanded', String(cb.checked || card.classList.contains('expanded')));
+          if (cb.checked) card.classList.remove('expanded');
+        });
+      }
+      window.__updateChannelCount = updateChannelCount;
+      document.querySelectorAll('input[name="enabledNotifiers"]').forEach(function (cb) {
+        cb.addEventListener('change', updateChannelCount);
+      });
+      updateChannelCount();
+
+      // 配置时区与浏览器时区不同：显示提示横幅
+      function updateTzMismatch() {
+        const banner = document.getElementById('tzMismatchBanner');
+        const text = document.getElementById('tzMismatchText');
+        if (!banner || !text) return;
+        const browserTz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
+        const saved = window.__savedTimezone;
+        const select = document.getElementById('timezone');
+        const selected = select ? select.value : saved;
+        if (!saved) { banner.classList.add('hidden'); return; }
+        const pending = selected && selected !== saved;
+        const effective = pending ? selected : saved;
+        if (effective === browserTz) { banner.classList.add('hidden'); return; }
+        text.innerHTML = '';
+        const strong = document.createElement('strong');
+        strong.textContent = '系统时区与浏览器时区不同：';
+        text.appendChild(strong);
+        text.appendChild(document.createTextNode(
+          (pending ? '即将保存的' : '已配置的') + '时区为 ' + effective + '，而当前浏览器为 ' + browserTz +
+          '。到期日、剩余天数与通知时段均按系统时区计算，列表中的日期可能与本地日历相差一天。'
+        ));
+        banner.classList.remove('hidden');
+      }
+      window.__updateTzMismatch = updateTzMismatch;
+      const tzSel = document.getElementById('timezone');
+      if (tzSel) tzSel.addEventListener('change', updateTzMismatch);
+
+      // 恢复模式（合并 / 覆盖）提示
+      function updateImportMode() {
+        const el = document.querySelector('input[name="importMode"]:checked');
+        const replace = el && el.value === 'replace';
+        const warn = document.getElementById('importReplaceWarning');
+        const hint = document.getElementById('importModeHint');
+        const btn = document.getElementById('importBackupBtn');
+        if (warn) warn.classList.toggle('hidden', !replace);
+        if (hint) hint.classList.toggle('hidden', !!replace);
+        if (btn) {
+          btn.classList.toggle('btn-primary', !replace);
+          btn.classList.toggle('btn-danger-solid', !!replace);
+        }
+      }
+      document.querySelectorAll('input[name="importMode"]').forEach(function (r) {
+        r.addEventListener('change', updateImportMode);
+      });
+      updateImportMode();
+
+      // 主题选择：记录用户手动修改，避免被加载时的同步覆盖
+      const themeSel = document.getElementById('themeModeSelect');
+      if (themeSel) themeSel.addEventListener('change', function () { themeSel.dataset.userTouched = '1'; });
+
+      // 分区导航：滚动高亮
+      const links = Array.from(document.querySelectorAll('.config-nav a[href^="#"]'));
+      const sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+      function setActive(id) {
+        links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + id); });
+      }
+      let spyTicking = false;
+      function spy() {
+        spyTicking = false;
+        let current = sections.length ? sections[0].id : '';
+        sections.forEach(function (sec) { if (sec.getBoundingClientRect().top <= 140) current = sec.id; });
+        if ((window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 4 && sections.length) {
+          current = sections[sections.length - 1].id;
+        }
+        if (current) setActive(current);
+      }
+      window.addEventListener('scroll', function () {
+        if (!spyTicking) { spyTicking = true; requestAnimationFrame(spy); }
+      }, { passive: true });
+      spy();
+      links.forEach(function (a) {
+        a.addEventListener('click', function () { setActive(a.getAttribute('href').slice(1)); });
       });
     })();
   </script>

@@ -1,773 +1,450 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>订阅管理系统</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  ${themeResources}  <style>
-    .table-container { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
-    .modal-container { backdrop-filter: blur(8px); }
-    .readonly-input { background-color: #f8fafc; border-color: #e2e8f0; cursor: not-allowed; }
-    .error-message { font-size: 0.875rem; margin-top: 0.25rem; display: none; }
-    .error-message.show { display: block; }
+  <title>订阅列表 · SubsTracker</title>
+  ${themeResources}
+  <style>
+    /* ═════════ 订阅列表页 ═════════ */
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px; }
+    .search-wrap { position: relative; flex: 1 1 260px; min-width: 200px; }
+    .search-wrap > .icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--tertiary); pointer-events: none; }
+    .search-wrap input { padding-left: 38px; padding-right: 36px; }
+    .search-wrap .clear-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+    .filter-bar select { width: auto; min-width: 118px; flex: 0 1 auto; }
+    .filter-bar .check-row { padding: 0 6px; }
+    .filter-spacer { flex: 1 1 0; }
 
-    /* 通用悬浮提示优化 */
-    .hover-container {
-      position: relative;
-      width: 100%;
-    }
-    .hover-text {
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: block;
-    }
-    .hover-text:hover { color: #3b82f6; }
-    .hover-tooltip {
-      position: fixed;
-      z-index: 9999;
-      background: #1f2937;
-      color: white;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      max-width: 320px;
-      word-wrap: break-word;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s ease;
-      transform: translateY(-10px);
-      white-space: normal;
-      pointer-events: none;
-      line-height: 1.4;
-    }
-    .hover-tooltip.show {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-    .hover-tooltip::before {
-      content: '';
-      position: absolute;
-      top: -6px;
-      left: 20px;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-bottom: 6px solid #1f2937;
-    }
-    .hover-tooltip.tooltip-above::before {
-      top: auto;
-      bottom: -6px;
-      border-bottom: none;
-      border-top: 6px solid #1f2937;
-    }
+    .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
 
-    /* 备注显示优化 */
-    .notes-container {
-      position: relative;
-      max-width: 200px;
-      width: 100%;
-    }
-    .notes-text {
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: block;
-    }
-    .notes-text:hover { color: #3b82f6; }
-    .notes-tooltip {
-      position: fixed;
-      z-index: 9999;
-      background: #1f2937;
-      color: white;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      max-width: 320px;
-      word-wrap: break-word;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s ease;
-      transform: translateY(-10px);
-      white-space: normal;
-      pointer-events: none;
-      line-height: 1.4;
-    }
-    .notes-tooltip.show {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-    .notes-tooltip::before {
-      content: '';
-      position: absolute;
-      top: -6px;
-      left: 20px;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-bottom: 6px solid #1f2937;
-    }
-    .notes-tooltip.tooltip-above::before {
-      top: auto;
-      bottom: -6px;
-      border-bottom: none;
-      border-top: 6px solid #1f2937;
-    }
+    .group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 10px; padding: 0 4px; }
+    .group-head:first-child { margin-top: 4px; }
+    .group-title { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 15px; }
+    .group-title .count { color: var(--muted); font-weight: 400; font-size: 12.5px; }
+    .group-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; cursor: pointer; }
+    .group-toggle .icon { transition: transform .15s; }
+    .group-toggle[aria-expanded="false"] .icon { transform: rotate(-90deg); }
+    .group-card { overflow: hidden; }
 
-    /* 农历显示样式 */
-    .lunar-display {
-      font-size: 0.75rem;
-      color: #6366f1;
-      margin-top: 2px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
+    /* 行：桌面为网格表格，窄屏为卡片 */
+    .sub-head, .sub-row {
+      display: grid; gap: 14px; align-items: center;
+      grid-template-columns: 22px minmax(200px, 2.1fr) minmax(108px, 1fr) 112px 158px minmax(120px, 1.1fr) 96px 148px;
+      grid-template-areas: "check name type amount expiry remind status actions";
     }
-    .lunar-display.show {
-      opacity: 1;
-    }
-    
-    .custom-date-picker {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-      border-radius: 12px;
-      width: 100%;
-      max-width: 380px;
-      min-width: 300px; 
-    }
-    
-    .custom-date-picker .calendar-day {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      width: 100%; 
-      height: auto;
-      aspect-ratio: 0.85; /* 保持适中的长宽比，紧凑布局 */
-      min-height: 45px;   /* 保证最小点击区域 */
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      position: relative;
-      padding: 2px; /* 减小内边距 */
-      font-size: 13px; /* 稍微调小字体适应移动端 */
-    }
-    /* 【新增】自定义下拉菜单样式 (用于替代 datalist) */
-    .custom-dropdown-wrapper {
-      position: relative;
-      width: 100%;
-    }
-    .custom-dropdown-list {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.5rem;
-      margin-top: 4px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 60; /* 确保在其他元素之上 */
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-      display: none; /* 默认隐藏 */
-    }
-    .custom-dropdown-list.show {
-      display: block;
-    }
-    .dropdown-item {
-      padding: 10px 12px;
-      font-size: 14px;
-      color: #374151;
-      cursor: pointer;
-      border-bottom: 1px solid #f3f4f6;
-      transition: background-color 0.2s;
-    }
-    .dropdown-item:last-child {
-      border-bottom: none;
-    }
-    .dropdown-item:hover, .dropdown-item:active {
-      background-color: #f3f4f6;
-      color: #4f46e5;
-    }
+    .sub-head { padding: 11px 18px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); background: var(--card2); }
+    .sub-row { padding: 15px 18px; border-top: 1px solid var(--line); min-height: 76px; transition: background-color .12s; }
+    .sub-head + .sub-row { border-top: 0; }
+    .sub-row:hover { background: var(--card2); }
+    .sub-row.is-selected { background: color-mix(in srgb, var(--greenBg) 55%, var(--card)); }
+    .sub-row.is-disabled .c-name, .sub-row.is-disabled .c-type, .sub-row.is-disabled .c-amount, .sub-row.is-disabled .c-expiry { opacity: .62; }
+    .c-check { grid-area: check; display: flex; align-items: center; }
+    .c-name { grid-area: name; min-width: 0; }
+    .c-type { grid-area: type; min-width: 0; }
+    .c-amount { grid-area: amount; min-width: 0; }
+    .c-expiry { grid-area: expiry; min-width: 0; }
+    .c-remind { grid-area: remind; min-width: 0; }
+    .c-status { grid-area: status; min-width: 0; }
+    .c-actions { grid-area: actions; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+    .sub-name { font-weight: 600; font-size: 14px; line-height: 1.35; word-break: break-word; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; min-width: 0; }
+    .chips .chip { max-width: 240px; }
+    .sub-meta { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+    .cat-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .cat-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; color: var(--muted); padding: 1px 7px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); }
+    .cat-tag .icon { width: 11px; height: 11px; }
+    .cell-main { font-size: 13.5px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .c-remind .cell-main { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .cell-sub { color: var(--muted); font-size: 12px; margin-top: 3px; line-height: 1.4; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .cell-sub .icon { width: 12px; height: 12px; }
+    .amount { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 14px; white-space: nowrap; }
+    .amount .cur { color: var(--muted); font-weight: 500; margin-right: 1px; }
+    .expiry-date { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13.5px; }
+    .expiry-date.over { color: var(--red); } .expiry-date.soon { color: var(--amber); }
+    .urgency { height: 4px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 7px; max-width: 150px; }
+    .urgency > i { display: block; height: 100%; background: var(--green); border-radius: 99px; }
+    .urgency.soon > i { background: var(--amber); } .urgency.over > i { background: var(--red); } .urgency.off > i { background: var(--tertiary); }
+    .lunar-line { color: var(--blue); font-size: 11.5px; margin-top: 3px; }
 
-    .custom-date-picker .calendar-day:hover {
-      background-color: #e0e7ff;
-      transform: scale(1.05);
-    }
-    
-    .custom-date-picker .calendar-day.selected {
-      background-color: #6366f1;
-      color: white;
-      transform: scale(1.1);
-      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
-    }
-    
-    .custom-date-picker .calendar-day.today {
-      background-color: #e0e7ff;
-      color: #6366f1;
-      font-weight: 600;
-      border: 2px solid #6366f1;
-    }
-    
-    .custom-date-picker .calendar-day.other-month {
-      color: #d1d5db;
-    }
-    
-    .custom-date-picker .calendar-day .lunar-text {
-      font-size: 11px;
-      line-height: 1.2;
-      margin-top: 3px;
-      opacity: 0.85;
-      text-align: center;
-      font-weight: 500;
-    }
-    
-    .custom-date-picker .calendar-day.selected .lunar-text {
-      color: rgba(255, 255, 255, 0.9);
-    }
-    
-    .custom-date-picker .calendar-day.today .lunar-text {
-      color: #6366f1;
-    }
-    
-    /* 月份和年份选择器样式 */
-    .month-option, .year-option {
-      transition: all 0.2s ease;
-      border: 1px solid transparent;
-    }
-    
-    .month-option:hover, .year-option:hover {
-      background-color: #e0e7ff !important;
-      border-color: #6366f1;
-      color: #6366f1;
-    }
-    
-    .month-option.selected, .year-option.selected {
-      background-color: #6366f1 !important;
-      color: white;
-      border-color: #6366f1;
-    }
-    
-    .lunar-toggle {
-      display: inline-flex;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 0.875rem;
-    }
-    .lunar-toggle input[type="checkbox"] {
-      margin-right: 6px;
-    }
+    /* 批量操作条 */
+    .bulkbar { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 18px; background: var(--ink); color: var(--card); border-radius: 999px; box-shadow: var(--shadow-pop); max-width: calc(100vw - 24px); animation: st-pop .16s ease; }
+    .bulkbar.hidden { display: none; }
+    .bulkbar .bulk-count { font-size: 13.5px; font-weight: 600; white-space: nowrap; margin-right: 6px; font-variant-numeric: tabular-nums; }
+    .bulkbar .btn { background: color-mix(in srgb, var(--card) 12%, transparent); color: var(--card); border-color: transparent; }
+    .bulkbar .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--card) 22%, transparent); box-shadow: none; }
+    .bulkbar .btn.bulk-danger { color: #ffb4a3; }
+    html.dark .bulkbar .btn.bulk-danger { color: var(--red); }
+    .bulkbar .bulk-actions { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 
-    /* 表格布局优化 */
-    .table-container {
-      width: 100%;
-      overflow: hidden;
-    }
+    /* 抽屉表单 */
+    .form-section { padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+    .form-section:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+    .form-section-title { display: flex; align-items: center; gap: 8px; font-weight: 650; font-size: 14.5px; margin-bottom: 14px; }
+    .form-section-title .icon { color: var(--muted); }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 14px; }
+    .form-grid .span-2 { grid-column: 1 / -1; }
+    .input-group { display: flex; gap: 8px; }
+    .input-group > select { flex: 0 0 116px; }
+    .input-icon-wrap { position: relative; }
+    .input-icon-wrap > input { padding-right: 38px; }
+    .input-icon-wrap > .icon { position: absolute; right: 12px; top: 20px; transform: translateY(-50%); color: var(--tertiary); pointer-events: none; }
+    .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .option-row { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; }
+    .drawer-form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .rule-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+    .rule-row select, .rule-row input[type="number"] { width: auto; }
+    .rule-row .rule-text { font-size: 12.5px; color: var(--muted); }
+    .rule-row .rule-delete { margin-left: auto; }
 
-    .table-container table {
-      table-layout: fixed;
-      width: 100%;
-    }
+    /* 悬浮提示 */
+    .hover-container { position: relative; width: 100%; min-width: 0; }
+    .hover-text, .notes-text { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; display: block; }
+    .notes-container { position: relative; width: 100%; min-width: 0; }
+    .hover-tooltip, .notes-tooltip { position: fixed; z-index: 9999; background: var(--ink); color: var(--card); padding: 9px 12px; border-radius: 10px; font-size: 12.5px; max-width: 320px; word-wrap: break-word; box-shadow: var(--shadow-pop); opacity: 0; visibility: hidden; transition: opacity .18s, transform .18s; transform: translateY(-6px); white-space: normal; pointer-events: none; line-height: 1.5; }
+    .hover-tooltip.show, .notes-tooltip.show { opacity: 1; visibility: visible; transform: translateY(0); }
 
-    /* 防止表格内容溢出 */
-    .table-container td {
-      overflow: hidden;
-      word-wrap: break-word;
-    }
+    /* 农历显示 */
+    .lunar-display { font-size: 12px; color: var(--blue); margin-top: 4px; min-height: 0; opacity: 0; transition: opacity .2s; }
+    .lunar-display.show { opacity: 1; }
 
-    .truncate {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    /* 日期选择器（保留原有结构与 ID，仅换皮） */
+    .custom-date-picker { position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; width: 100%; min-width: 300px; max-width: 360px; padding: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-pop); }
+    .custom-date-picker .dp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .custom-date-picker .dp-title { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+    .custom-date-picker .dp-title span[id] { cursor: pointer; padding: 3px 8px; border-radius: 8px; }
+    .custom-date-picker .dp-title span[id]:hover { background: var(--card2); }
+    .custom-date-picker .dp-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-bottom: 4px; }
+    .custom-date-picker .dp-week > div { text-align: center; font-size: 11.5px; color: var(--muted); padding: 4px 0; }
+    .custom-date-picker [id$="Calendar"] { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .custom-date-picker .calendar-day { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 42px; border-radius: 10px; cursor: pointer; transition: background .12s; padding: 2px; font-size: 13px; font-variant-numeric: tabular-nums; }
+    .custom-date-picker .calendar-day:hover { background: var(--card2); }
+    .custom-date-picker .calendar-day.other-month { color: var(--tertiary); opacity: .6; }
+    .custom-date-picker .calendar-day.today { box-shadow: inset 0 0 0 1.5px var(--ink); font-weight: 650; }
+    .custom-date-picker .calendar-day.selected { background: var(--ink); color: var(--card); }
+    .custom-date-picker .calendar-day .lunar-text { font-size: 10px; line-height: 1.1; margin-top: 2px; opacity: .7; }
+    .custom-date-picker .dp-sub { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .month-option, .year-option { padding: 8px 6px; border-radius: 10px; font-size: 13px; border: 1px solid transparent; }
+    .month-option:hover, .year-option:hover { background: var(--card2); border-color: var(--line); }
+    .month-option.selected, .year-option.selected, .year-option.bg-indigo-100 { background: var(--ink) !important; color: var(--card) !important; }
+    .custom-date-picker .dp-foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
-    /* 响应式优化 */
-    .responsive-table { table-layout: auto; width: 100%; }
-    .td-content-wrapper { word-wrap: break-word; white-space: normal; text-align: left; width: 100%; }
-    .td-content-wrapper > * { text-align: left; } /* Align content left within the wrapper */
-    /* 操作列按钮始终可换行，避免克隆等按钮被裁切看不见 */
-    .action-buttons-wrapper {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem;
-      align-items: center;
-      min-width: 10rem;
-    }
-    .action-buttons-wrapper button {
-      flex: 0 0 auto;
-    }
+    /* 自定义下拉（类型 / 分类） */
+    .custom-dropdown-wrapper { position: relative; width: 100%; }
+    .custom-dropdown-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 70; display: none; max-height: 220px; overflow-y: auto; padding: 5px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-pop); }
+    .custom-dropdown-list.show { display: block; }
+    .dropdown-item { padding: 8px 10px; font-size: 13.5px; border-radius: 9px; cursor: pointer; }
+    .dropdown-item:hover, .dropdown-item:active { background: var(--card2); }
 
-    @media (max-width: 767px) {
-      .table-container { overflow: hidden; }
-      .responsive-table thead { display: none; }
-      .responsive-table tbody, .responsive-table tr, .responsive-table td { display: block; width: 100%; }
-      .responsive-table tr { margin-bottom: 1.5rem; border: 1px solid #ddd; border-radius: 0.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; }
-      .responsive-table td { display: flex; justify-content: flex-start; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid #eee; }
-      .responsive-table td:last-of-type { border-bottom: none; }
-      .responsive-table td:before { content: attr(data-label); font-weight: 600; text-align: left; padding-right: 1rem; color: #374151; white-space: nowrap; }
-      .action-buttons-wrapper { justify-content: flex-start; }
+    /* 支付记录 */
+    .pay-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px 4px; border-top: 1px solid var(--line); }
+    .pay-item:first-child { border-top: 0; }
 
-      .notes-container, .hover-container {
-        max-width: 180px; /* Adjust for new layout */
-        text-align: right;
+    @media (max-width: 1199px) {
+      .sub-head, .sub-row { grid-template-columns: 22px minmax(190px, 2fr) minmax(100px, 1fr) 104px 150px 92px 140px; grid-template-areas: "check name type amount expiry status actions"; }
+      .c-remind { display: none; }
+    }
+    @media (max-width: 1023px) {
+      .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .sub-head { display: none; }
+      .sub-row {
+        grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px 10px; align-items: start; padding: 15px 16px;
+        grid-template-areas: "check name status" ". type type" ". expiry amount" ". actions actions";
       }
-      .td-content-wrapper .notes-text {
-        text-align: right;
-      }
-     }
-    @media (max-width: 767px) {
-      #systemTimeDisplay {
-        display: none !important;
-      }
+      .c-remind { display: none; }
+      .c-type { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .c-type .cell-sub { margin-top: 0; }
+      .c-check { padding-top: 1px; }
+      .c-amount { text-align: right; align-self: end; }
+      .c-actions { justify-content: flex-start; padding-top: 4px; }
+      .urgency { max-width: none; }
+      .filter-bar select { flex: 1 1 calc(33% - 10px); min-width: 0; }
     }
-    @media (min-width: 768px) {
-      .table-container { overflow-x: auto; }
-      .responsive-table td[data-label="操作"] { min-width: 16rem; }
+    @media (max-width: 900px) {
+      .bulkbar { bottom: 78px; padding-left: 14px; }
+      .bulkbar .btn .btn-label { display: none; }
     }
-
-    /* Toast 样式 */
-    #toast-container {
-      position: fixed; top: 20px; right: 20px; z-index: 10000;
-      display: flex; flex-direction: column; gap: 8px; max-width: 380px;
+    @media (max-width: 560px) {
+      .stat-grid { gap: 10px; }
+      .form-grid { grid-template-columns: minmax(0, 1fr); }
+      .filter-bar select { flex: 1 1 calc(50% - 10px); }
+      .page-head .btn { width: 100%; }
     }
-    .toast {
-      padding: 12px 36px 12px 16px; border-radius: 8px; position: relative;
-      color: white; font-weight: 500; transform: translateX(400px);
-      transition: all 0.3s ease-in-out; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-    .toast .toast-close {
-      position: absolute; top: 8px; right: 10px; cursor: pointer;
-      opacity: 0.7; font-size: 14px; line-height: 1;
-    }
-    .toast .toast-close:hover { opacity: 1; }
-    .toast.show { transform: translateX(0); }
-    .toast.success { background-color: #10b981; }
-    .toast.error { background-color: #ef4444; }
-    .toast.info { background-color: #3b82f6; }
-    .toast.warning { background-color: #f59e0b; }
-    html.dark .toast {
-      color: #f9fafb;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
-    }
-    html.dark .toast.success { background-color: #059669; }
-    html.dark .toast.error { background-color: #dc2626; }
-    html.dark .toast.info { background-color: #2563eb; }
-    html.dark .toast.warning { background-color: #d97706; }
-
-    /* 模态框动画 */
-    #subscriptionModal { transition: opacity 0.2s ease; opacity: 0; }
-    #subscriptionModal:not(.hidden) { opacity: 1; }
-    #subscriptionModal > div { transition: transform 0.2s ease; transform: scale(0.95); }
-    #subscriptionModal:not(.hidden) > div { transform: scale(1); }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div id="toast-container"></div>
+<body>
+  <!--ICON_SPRITE-->
+  <div id="toast-container" aria-live="polite"></div>
+  <!--APP_HEADER:list-->
 
-  <nav class="bg-white shadow-md relative z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex items-center shrink-0">
-          <div class="flex items-center">
-            <i class="fas fa-calendar-check text-indigo-600 text-2xl mr-2"></i>
-            <span class="font-bold text-xl text-gray-800">订阅管理系统</span>
-          </div>
-          <span id="systemTimeDisplay" class="ml-4 text-base text-indigo-600 font-normal hidden md:block pt-1"></span>
-        </div>
-
-        <div class="hidden md:flex items-center space-x-4 ml-auto">
-          <a href="/admin/dashboard" class="text-gray-700 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-chart-line mr-1"></i>仪表盘
-          </a>
-          <a href="/admin" class="text-indigo-600 border-b-2 border-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-list mr-1"></i>订阅列表
-          </a>
-          <a href="/admin/notify-logs" class="text-gray-700 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-history mr-1"></i>通知历史
-          </a>
-          <a href="/admin/config" class="text-gray-700 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-cog mr-1"></i>系统配置
-          </a>
-          <a href="/api/logout" class="text-gray-700 hover:text-red-600 border-b-2 border-transparent hover:border-red-300 px-3 py-2 rounded-md text-sm font-medium transition">
-            <i class="fas fa-sign-out-alt mr-1"></i>退出登录
-          </a>
-        </div>
-
-        <div class="flex items-center md:hidden ml-auto">
-          <button id="mobile-menu-btn" type="button" aria-expanded="false" aria-label="切换导航菜单" class="text-gray-600 hover:text-indigo-600 focus:outline-none p-2 rounded-md hover:bg-gray-100 active:bg-gray-200 transition-colors">
-            <i class="fas fa-bars text-xl"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-b border-gray-200 w-full">
-       <div class="px-4 pt-2 pb-4 space-y-2">
-        <div id="mobileTimeDisplay" class="px-3 py-2 text-xs text-indigo-600 text-right border-b border-gray-100 mb-2"></div>
-        <a href="/admin/dashboard" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-chart-line w-6 text-center mr-2"></i>仪表盘
-        </a>
-        <a href="/admin" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-list w-6 text-center mr-2"></i>订阅列表
-        </a>
-        <a href="/admin/notify-logs" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-history w-6 text-center mr-2"></i>通知历史
-        </a>
-        <a href="/admin/config" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 active:bg-indigo-100 transition-colors">
-          <i class="fas fa-cog w-6 text-center mr-2"></i>系统配置
-        </a>
-        <a href="/api/logout" class="block px-3 py-3 rounded-md text-base font-medium text-gray-700 hover:bg-red-50 hover:text-red-600 active:bg-red-100 transition-colors">
-          <i class="fas fa-sign-out-alt w-6 text-center mr-2"></i>退出登录
-        </a>
-      </div>
-    </div>
-  </nav>
-  
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+  <main class="main">
+    <div class="page-head">
       <div>
-        <h2 class="text-2xl font-bold text-gray-800">订阅列表</h2>
-        <p class="text-sm text-gray-500 mt-1">使用搜索与分类快速定位订阅，开启农历显示可同步查看农历日期</p>
+        <div class="eyebrow">个人订阅总览</div>
+        <h1 class="page-title">订阅列表 <span id="subsCount" class="badge"></span></h1>
+        <p class="page-sub">按到期紧急程度分组；支持搜索、筛选、快捷续期与批量管理。</p>
       </div>
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 w-full">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-3 w-full lg:flex-1 lg:max-w-2xl">
-          <div class="relative flex-1 min-w-[200px] lg:max-w-md">
-            <input type="text" id="searchKeyword" placeholder="搜索名称、类型或备注..." class="w-full pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
-              <i class="fas fa-search"></i>
-            </span>
-            <button id="clearSearch" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600" style="display:none;" onclick="document.getElementById('searchKeyword').value='';this.style.display='none';renderSubscriptionTable();">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div class="sm:w-36 lg:w-32">
-            <select id="modeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-sm">
-              <option value="">全部模式</option>
-              <option value="cycle">循环订阅</option>
-              <option value="reset">到期重置</option>
-            </select>
-          </div>
-          <div class="sm:w-36 lg:w-32">
-            <select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-sm">
-              <option value="">全部状态</option>
-              <option value="active">正常</option>
-              <option value="soon">即将到期</option>
-              <option value="expired">已过期</option>
-              <option value="disabled">已停用</option>
-            </select>
-          </div>
-          <div class="sm:w-44 lg:w-40">
-            <select id="categoryFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-sm">
-              <option value="">全部分类</option>
-            </select>
-          </div>
+      <button id="addSubscriptionBtn" type="button" class="btn btn-primary">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>添加订阅
+      </button>
+    </div>
 
-        </div>
-        <div class="flex items-center space-x-3 lg:space-x-4">
-        <label class="lunar-toggle">
-          <input type="checkbox" id="listShowLunar" class="form-checkbox h-4 w-4 text-indigo-600 shrink-0">
-          <span class="text-gray-700">显示农历</span>
-        </label>
-        <button id="addSubscriptionBtn" class="btn-primary text-white px-4 py-2 rounded-md text-sm font-medium flex items-center shrink-0">
-          <i class="fas fa-plus mr-2"></i>添加新订阅
+    <section id="summaryStrip" class="stat-grid" aria-label="到期概览">
+      <div class="card stat">
+        <span class="stat-label"><span class="stat-dot" style="background:var(--red)"></span>已过期</span>
+        <strong id="statExpired" class="stat-value" style="color:var(--red)">–</strong>
+        <small class="stat-sub">需要尽快处理</small>
+      </div>
+      <div class="card stat">
+        <span class="stat-label"><span class="stat-dot" style="background:var(--amber)"></span>7 天内到期</span>
+        <strong id="statSoon7" class="stat-value" style="color:var(--amber)">–</strong>
+        <small id="statSoon7Sub" class="stat-sub">含今天到期</small>
+      </div>
+      <div class="card stat">
+        <span class="stat-label"><span class="stat-dot" style="background:var(--green)"></span>30 天内到期</span>
+        <strong id="statSoon30" class="stat-value">–</strong>
+        <small class="stat-sub">含 7 天内</small>
+      </div>
+      <div class="card stat">
+        <span class="stat-label"><span class="stat-dot" style="background:var(--ink)"></span>年度预计支出</span>
+        <strong id="statAnnual" class="stat-value">–</strong>
+        <small id="statAnnualSub" class="stat-sub">按周期折算</small>
+      </div>
+    </section>
+
+    <section class="card filter-bar mb-5" aria-label="搜索与筛选">
+      <div class="search-wrap">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input type="text" id="searchKeyword" placeholder="搜索名称、域名、类型或备注" autocomplete="off">
+        <button id="clearSearch" type="button" class="icon-btn ghost sm clear-btn" style="display:none;" aria-label="清除搜索" onclick="document.getElementById('searchKeyword').value='';this.style.display='none';renderSubscriptionTable();">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
         </button>
       </div>
-      </div>
+      <select id="categoryFilter" aria-label="分类筛选">
+        <option value="">全部分类</option>
+      </select>
+      <select id="statusFilter" aria-label="状态筛选">
+        <option value="">全部状态</option>
+        <option value="active">正常</option>
+        <option value="soon">即将到期</option>
+        <option value="expired">已过期</option>
+        <option value="disabled">已停用</option>
+      </select>
+      <select id="modeFilter" aria-label="模式筛选">
+        <option value="">全部模式</option>
+        <option value="cycle">循环订阅</option>
+        <option value="reset">到期重置</option>
+      </select>
+      <label class="check-row muted" for="listShowLunar">
+        <input type="checkbox" id="listShowLunar" class="switch">显示农历
+      </label>
+    </section>
+
+    <div id="subscriptionsBody" aria-live="polite"></div>
+  </main>
+
+  <div id="bulkBar" class="bulkbar hidden" role="toolbar" aria-label="批量操作">
+    <span class="bulk-count">已选 <span id="bulkCount">0</span> 项</span>
+    <div class="bulk-actions">
+      <button type="button" class="btn btn-sm" data-bulk="renew" title="每项续期一个周期"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span class="btn-label">续期</span></button>
+      <button type="button" class="btn btn-sm" data-bulk="enable" title="启用"><svg class="icon" aria-hidden="true"><use href="#i-play-circle"/></svg><span class="btn-label">启用</span></button>
+      <button type="button" class="btn btn-sm" data-bulk="disable" title="停用"><svg class="icon" aria-hidden="true"><use href="#i-pause-circle"/></svg><span class="btn-label">停用</span></button>
+      <button type="button" class="btn btn-sm bulk-danger" data-bulk="delete" title="删除"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span class="btn-label">删除</span></button>
     </div>
-    
-    <div class="table-container bg-white rounded-lg overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full divide-y divide-gray-200 responsive-table">
-          <thead class="bg-gray-50">
-            <tr>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 23%;">
-                名称
-              </th>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 13%;">
-                类型
-              </th>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 18%;">
-                到期 <i class="fas fa-sort-up ml-1 text-indigo-500" title="按到期时间升序排列"></i>
-              </th>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">
-                金额
-              </th>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 13%;">
-                提醒
-              </th>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 10%;">
-                状态
-              </th>
-              <th scope="col" class="px-4 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider" style="width: 13%;">
-                操作
-              </th>
-            </tr>
-          </thead>
-        <tbody id="subscriptionsBody" class="bg-white divide-y divide-gray-200">
-        </tbody>
-        </table>
-      </div>
-    </div>
+    <button type="button" id="bulkClear" class="icon-btn sm" style="background:transparent;border-color:transparent;color:inherit" aria-label="取消选择" title="取消选择">
+      <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+    </button>
   </div>
 
-  <div id="subscriptionModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-gray-600 bg-opacity-50">
-    <div class="relative w-auto max-w-2xl mx-4 md:mx-auto my-12 bg-white rounded-lg shadow-xl">
-      <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
-        <div class="flex items-center justify-between">
-          <h3 id="modalTitle" class="text-lg font-medium text-gray-900">添加新订阅</h3>
-          <button id="closeModal" class="text-gray-400 hover:text-gray-600">
-            <i class="fas fa-times text-xl"></i>
-          </button>
+  <!-- 添加 / 编辑订阅：右侧抽屉 -->
+  <div id="subscriptionModal" class="drawer hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="drawer-panel">
+      <div class="drawer-head">
+        <div>
+          <div class="eyebrow">订阅详情</div>
+          <h2 id="modalTitle" class="text-xl font-semibold tracking-tight mt-0.5">添加新订阅</h2>
         </div>
+        <button id="closeModal" type="button" class="icon-btn" aria-label="关闭">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
       </div>
-      
-      <form id="subscriptionForm" class="p-6 space-y-5">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">订阅名称 *</label>
-            <input type="text" id="name" required
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-            <div class="error-message text-red-500" data-for="name"></div>
-          </div>
-          
-          <div class="custom-dropdown-wrapper">
-            <label for="customType" class="block text-sm font-medium text-gray-700 mb-1">订阅类型</label>
-            <input type="text" id="customType" placeholder="选择或输入自定义类型" autocomplete="off"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-            <div id="customTypeDropdown" class="custom-dropdown-list"></div>
-          </div>
 
-          <div class="custom-dropdown-wrapper">
-            <label for="category" class="block text-sm font-medium text-gray-700 mb-1">分类标签</label>
-            <input type="text" id="category" placeholder="选择或输入自定义标签" autocomplete="off"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-            <div id="categoryDropdown" class="custom-dropdown-list"></div>
-            <p class="mt-1 text-xs text-gray-500">可输入多个标签并使用"/"分隔</p>
-          </div>
-        </div>
+      <form id="subscriptionForm" class="drawer-form" novalidate>
+        <div class="drawer-body">
+          <section class="form-section">
+            <h3 class="form-section-title"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>基本信息</h3>
+            <div class="form-grid">
+              <div class="span-2">
+                <label for="name" class="label">订阅名称 *</label>
+                <input type="text" id="name" required placeholder="例如：Cloud Server Tokyo，多个域名可用空格 / 逗号分隔">
+                <div class="error-message" data-for="name"></div>
+              </div>
+              <div class="custom-dropdown-wrapper">
+                <label for="customType" class="label">订阅类型</label>
+                <input type="text" id="customType" placeholder="选择或输入自定义类型" autocomplete="off">
+                <div id="customTypeDropdown" class="custom-dropdown-list"></div>
+              </div>
+              <div class="custom-dropdown-wrapper">
+                <label for="category" class="label">分类标签</label>
+                <input type="text" id="category" placeholder="选择或输入自定义标签" autocomplete="off">
+                <div id="categoryDropdown" class="custom-dropdown-list"></div>
+                <p class="hint">可输入多个标签并使用 “/” 分隔</p>
+              </div>
+            </div>
+          </section>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              费用设置 <span class="text-gray-400 text-xs ml-1">可选</span>
-            </label>
-            <div class="flex space-x-2">
-              <div class="w-24 shrink-0"> 
-                <select id="currency" class="h-10 w-full px-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white text-sm">
-                  <option value="CNY" selected>CNY (¥)</option>
-                  <option value="USD">USD ($)</option>   // 美元
-                  <option value="HKD">HKD (HK$)</option> // 港币
-                  <option value="TWD">TWD (NT$)</option> // 新台币
-                  <option value="JPY">JPY (¥)</option>   // 日元
-                  <option value="EUR">EUR (€)</option>   // 欧元
-                  <option value="GBP">GBP (£)</option>   // 英镑
-                  <option value="KRW">KRW (₩)</option>   // 韩元
-                  <option value="TRY">TRY (₺)</option>   // 土耳其里拉
+          <section class="form-section">
+            <h3 class="form-section-title"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>费用与周期</h3>
+            <div class="form-grid">
+              <div class="span-2">
+                <label for="amount" class="label">费用 <span class="eyebrow">（可选，用于统计支出和仪表盘）</span></label>
+                <div class="input-group">
+                  <select id="currency" aria-label="币种">
+                    <option value="CNY" selected>CNY ¥</option>
+                    <option value="USD">USD $</option>
+                    <option value="HKD">HKD HK$</option>
+                    <option value="TWD">TWD NT$</option>
+                    <option value="JPY">JPY ¥</option>
+                    <option value="EUR">EUR €</option>
+                    <option value="GBP">GBP £</option>
+                    <option value="KRW">KRW ₩</option>
+                    <option value="TRY">TRY ₺</option>
+                  </select>
+                  <input type="number" id="amount" step="0.01" min="0" placeholder="例如：15.00">
+                </div>
+              </div>
+              <div class="span-2">
+                <label for="subscriptionMode" class="label">订阅模式</label>
+                <select id="subscriptionMode">
+                  <option value="cycle" selected>循环订阅 — 未过期续订时从当前到期日接续</option>
+                  <option value="reset">到期重置 — 从支付日重新起算周期</option>
+                </select>
+                <p class="hint"><strong>循环</strong>适合会员续费；<strong>重置</strong>适合保号卡等按充值日计算的场景。</p>
+              </div>
+              <div>
+                <label for="periodValue" class="label">周期数值 *</label>
+                <input type="number" id="periodValue" min="1" value="1" required>
+                <div class="error-message" data-for="periodValue"></div>
+              </div>
+              <div>
+                <label for="periodUnit" class="label">周期单位 *</label>
+                <select id="periodUnit" required>
+                  <option value="day">天</option>
+                  <option value="month" selected>月</option>
+                  <option value="year">年</option>
                 </select>
               </div>
-              <div class="relative flex-1">
-                <input type="number" id="amount" step="0.01" min="0" placeholder="例如: 15.00"
-                  class="h-10 w-full px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+              <div class="span-2 preset-row" aria-label="周期预设">
+                <span class="eyebrow self-center mr-1">快捷：</span>
+                <button type="button" class="period-preset btn btn-xs" data-value="1" data-unit="month">每月</button>
+                <button type="button" class="period-preset btn btn-xs" data-value="3" data-unit="month">季度</button>
+                <button type="button" class="period-preset btn btn-xs" data-value="6" data-unit="month">半年</button>
+                <button type="button" class="period-preset btn btn-xs" data-value="1" data-unit="year">一年</button>
               </div>
             </div>
-            <p class="mt-1 text-xs text-gray-500">用于统计支出和生成仪表盘</p>
-          </div>
+          </section>
 
-          <div>
-             <div class="flex justify-between items-center mb-1">
-                <label for="subscriptionMode" class="block text-sm font-medium text-gray-700">订阅模式</label>
-             </div>
-            <select id="subscriptionMode" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white h-10">
-              <option value="cycle" selected>📅 循环订阅</option>
-              <option value="reset">⏳ 到期重置</option>
-            </select>
-            <p class="mt-1 text-xs text-gray-500 leading-relaxed">
-              <strong>循环</strong>：未过期续订时从当前到期日接续（如会员续费）；
-              <strong>重置</strong>：从支付日重新起算周期（如保号卡按充值日算）。
-            </p>
-
-            <div class="mt-2 flex items-center space-x-3 flex-wrap gap-y-1">
-                 <label class="inline-flex items-center cursor-pointer select-none">
-                  <input type="checkbox" id="showLunar" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
-                  <span class="ml-2 text-sm text-gray-600">显示农历日期</span>
-                </label>
-                <label class="inline-flex items-center cursor-pointer select-none">
-                  <input type="checkbox" id="useLunar" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
-                  <span class="ml-2 text-sm text-gray-600">农历周期</span>
-                </label>
-                <label class="inline-flex items-center cursor-pointer select-none" title="仅公历；续订/推算时落到目标月最后一天">
-                  <input type="checkbox" id="endOfMonth" class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
-                  <span class="ml-2 text-sm text-gray-600">每月最后一天</span>
-                </label>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div class="md:col-span-2">
-            <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
-            <div class="relative">
-              <input type="text" id="startDate"
-                class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                placeholder="YYYY-MM-DD">
-              <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <i class="fas fa-calendar text-gray-400"></i>
-              </div>
-               <div id="startDatePicker" class="custom-date-picker hidden absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg p-4 w-full">
-                  <div class="flex justify-between items-center mb-4">
-                    <button type="button" id="startDatePrevMonth" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-left"></i></button>
-                    <div class="flex items-center space-x-2">
-                      <span id="startDateMonth" class="font-medium text-gray-900 cursor-pointer hover:text-indigo-600">1月</span>
-                      <span class="text-gray-400">|</span>
-                      <span id="startDateYear" class="font-medium text-gray-900 cursor-pointer hover:text-indigo-600">2024</span>
+          <section class="form-section">
+            <h3 class="form-section-title"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>日期</h3>
+            <div class="form-grid">
+              <div>
+                <label for="startDate" class="label">开始日期</label>
+                <div class="input-icon-wrap relative">
+                  <input type="text" id="startDate" placeholder="YYYY-MM-DD" autocomplete="off">
+                  <svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+                  <div id="startDatePicker" class="custom-date-picker hidden">
+                    <div class="dp-nav">
+                      <button type="button" id="startDatePrevMonth" class="icon-btn ghost sm" aria-label="上个月"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+                      <div class="dp-title"><span id="startDateMonth">1月</span><span class="eyebrow">/</span><span id="startDateYear">2024</span></div>
+                      <button type="button" id="startDateNextMonth" class="icon-btn ghost sm" aria-label="下个月"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
                     </div>
-                    <button type="button" id="startDateNextMonth" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-right"></i></button>
+                    <div id="startDateMonthPicker" class="hidden mb-3"><div class="dp-nav"><span class="font-semibold">选择月份</span><button type="button" id="startDateBackToCalendar" class="icon-btn ghost sm" aria-label="返回"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="dp-sub"><button type="button" class="month-option" data-month="0">1月</button><button type="button" class="month-option" data-month="1">2月</button><button type="button" class="month-option" data-month="2">3月</button><button type="button" class="month-option" data-month="3">4月</button><button type="button" class="month-option" data-month="4">5月</button><button type="button" class="month-option" data-month="5">6月</button><button type="button" class="month-option" data-month="6">7月</button><button type="button" class="month-option" data-month="7">8月</button><button type="button" class="month-option" data-month="8">9月</button><button type="button" class="month-option" data-month="9">10月</button><button type="button" class="month-option" data-month="10">11月</button><button type="button" class="month-option" data-month="11">12月</button></div></div>
+                    <div id="startDateYearPicker" class="hidden mb-3"><div class="dp-nav"><span class="font-semibold">选择年份</span><button type="button" id="startDateBackToCalendarFromYear" class="icon-btn ghost sm" aria-label="返回"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="dp-nav"><button type="button" id="startDatePrevYearDecade" class="icon-btn ghost sm" aria-label="上一个十年"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg></button><span id="startDateYearRange" class="font-semibold mono">2020-2029</span><button type="button" id="startDateNextYearDecade" class="icon-btn ghost sm" aria-label="下一个十年"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div><div id="startDateYearGrid" class="dp-sub"></div></div>
+                    <div class="dp-week"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div><div id="startDateCalendar"></div>
+                    <div class="dp-foot"><button type="button" id="startDateGoToToday" class="btn btn-sm btn-ghost btn-block"><svg class="icon" aria-hidden="true"><use href="#i-calendar-day"/></svg>回到今天</button></div>
                   </div>
-                  <div id="startDateMonthPicker" class="hidden mb-4"><div class="flex justify-between items-center mb-3"><span class="font-medium text-gray-900">选择月份</span><button type="button" id="startDateBackToCalendar" class="text-gray-600 hover:text-gray-800"><i class="fas fa-times"></i></button></div><div class="grid grid-cols-3 gap-2"><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="0">1月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="1">2月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="2">3月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="3">4月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="4">5月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="5">6月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="6">7月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="7">8月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="8">9月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="9">10月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="10">11月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="11">12月</button></div></div>
-                  <div id="startDateYearPicker" class="hidden mb-4"><div class="flex justify-between items-center mb-3"><span class="font-medium text-gray-900">选择年份</span><button type="button" id="startDateBackToCalendarFromYear" class="text-gray-600 hover:text-gray-800"><i class="fas fa-times"></i></button></div><div class="flex justify-between items-center mb-3"><button type="button"  id="startDatePrevYearDecade" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-left"></i></button><span id="startDateYearRange" class="font-medium text-gray-900">2020-2029</span><button type="button"  id="startDateNextYearDecade" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-right"></i></button></div><div id="startDateYearGrid" class="grid grid-cols-3 gap-2"></div></div>
-                  <div class="grid grid-cols-7 gap-2 mb-3"><div class="text-center text-sm font-semibold text-gray-600 py-2">日</div><div class="text-center text-sm font-semibold text-gray-600 py-2">一</div><div class="text-center text-sm font-semibold text-gray-600 py-2">二</div><div class="text-center text-sm font-semibold text-gray-600 py-2">三</div><div class="text-center text-sm font-semibold text-gray-600 py-2">四</div><div class="text-center text-sm font-semibold text-gray-600 py-2">五</div><div class="text-center text-sm font-semibold text-gray-600 py-2">六</div></div><div id="startDateCalendar" class="grid grid-cols-7 gap-2"></div>
-                  <div class="mt-4 pt-3 border-t border-gray-200"><button type="button" id="startDateGoToToday" class="w-full px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md"><i class="fas fa-calendar-day mr-2"></i>回到今天</button></div>
-               </div>
-            </div>
-            <div id="startDateLunar" class="lunar-display pl-1"></div>
-          </div>
-          
-          <div>
-            <label for="periodValue" class="block text-sm font-medium text-gray-700 mb-1">周期数值 *</label>
-            <input type="number" id="periodValue" min="1" value="1" required
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-          </div>
-          
-          <div>
-            <label for="periodUnit" class="block text-sm font-medium text-gray-700 mb-1">周期单位 *</label>
-            <select id="periodUnit" required
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-              <option value="day">天</option>
-              <option value="month" selected>月</option>
-              <option value="year">年</option>
-            </select>
-            <div class="mt-1 flex flex-wrap gap-1">
-              <button type="button" class="period-preset text-xs px-2 py-0.5 border border-gray-300 rounded hover:bg-indigo-50 text-gray-600" data-value="3" data-unit="month">季度</button>
-              <button type="button" class="period-preset text-xs px-2 py-0.5 border border-gray-300 rounded hover:bg-indigo-50 text-gray-600" data-value="6" data-unit="month">半年</button>
-              <button type="button" class="period-preset text-xs px-2 py-0.5 border border-gray-300 rounded hover:bg-indigo-50 text-gray-600" data-value="1" data-unit="year">一年</button>
-            </div>
-          </div>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-              <label for="expiryDate" class="block text-sm font-medium text-gray-700 mb-1">到期日期 *</label>
-              <div class="relative">
-                <input type="text" id="expiryDate" required
-                  class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                  placeholder="YYYY-MM-DD">
-                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <i class="fas fa-calendar text-gray-400"></i>
                 </div>
-                <div id="expiryDatePicker" class="custom-date-picker hidden absolute top-full left-0 z-50 bg-white border border-gray-300 rounded-md shadow-lg p-4 w-full">
-                    <div class="flex justify-between items-center mb-4">
-                      <button type="button" id="expiryDatePrevMonth" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-left"></i></button>
-                      <div class="flex items-center space-x-2"><span id="expiryDateMonth" class="font-medium text-gray-900 cursor-pointer hover:text-indigo-600">1月</span><span class="text-gray-400">|</span><span id="expiryDateYear" class="font-medium text-gray-900 cursor-pointer hover:text-indigo-600">2024</span></div>
-                      <button type="button" id="expiryDateNextMonth" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                    <div id="expiryDateMonthPicker" class="hidden mb-4"><div class="flex justify-between items-center mb-3"><span class="font-medium text-gray-900">选择月份</span><button type="button" id="expiryDateBackToCalendar" class="text-gray-600 hover:text-gray-800"><i class="fas fa-times"></i></button></div><div class="grid grid-cols-3 gap-2"><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="0">1月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="1">2月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="2">3月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="3">4月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="4">5月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="5">6月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="6">7月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="7">8月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="8">9月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="9">10月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="10">11月</button><button type="button" class="month-option px-3 py-2 text-sm rounded hover:bg-gray-100" data-month="11">12月</button></div></div>
-                    <div id="expiryDateYearPicker" class="hidden mb-4"><div class="flex justify-between items-center mb-3"><span class="font-medium text-gray-900">选择年份</span><button type="button" id="expiryDateBackToCalendarFromYear" class="text-gray-600 hover:text-gray-800"><i class="fas fa-times"></i></button></div><div class="flex justify-between items-center mb-3"><button type="button" id="expiryDatePrevYearDecade" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-left"></i></button><span id="expiryDateYearRange" class="font-medium text-gray-900">2020-2029</span><button type="button" id="expiryDateNextYearDecade" class="text-gray-600 hover:text-gray-800"><i class="fas fa-chevron-right"></i></button></div><div id="expiryDateYearGrid" class="grid grid-cols-3 gap-2"></div></div>
-                    <div class="grid grid-cols-7 gap-2 mb-3"><div class="text-center text-sm font-semibold text-gray-600 py-2">日</div><div class="text-center text-sm font-semibold text-gray-600 py-2">一</div><div class="text-center text-sm font-semibold text-gray-600 py-2">二</div><div class="text-center text-sm font-semibold text-gray-600 py-2">三</div><div class="text-center text-sm font-semibold text-gray-600 py-2">四</div><div class="text-center text-sm font-semibold text-gray-600 py-2">五</div><div class="text-center text-sm font-semibold text-gray-600 py-2">六</div></div><div id="expiryDateCalendar" class="grid grid-cols-7 gap-2"></div>
-                    <div class="mt-4 pt-3 border-t border-gray-200"><button type="button" id="expiryDateGoToToday" class="w-full px-3 py-2 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md"><i class="fas fa-calendar-day mr-2"></i>回到今天</button></div>
-                </div>
+                <div class="error-message" data-for="startDate"></div>
+                <div id="startDateLunar" class="lunar-display"></div>
               </div>
-              <div id="expiryDateLunar" class="lunar-display pl-1 mb-1"></div>
-              <div class="error-message text-red-500" data-for="expiryDate"></div>
-          </div>
-
-          <div class="flex items-start">
-              <button type="button" id="calculateExpiryBtn" class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md shadow-sm text-sm font-medium transition-colors flex items-center justify-center h-[42px] whitespace-nowrap">
-                <i class="fas fa-calculator mr-2"></i>自动计算到期日期
-              </button>
-          </div>
-        </div>
-
-        <!-- 提醒规则编辑器（多条规则）。隐藏的 reminderUnit/reminderValue 仅作为后端兜底字段保留。 -->
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <div class="flex items-center justify-between mb-3">
-            <label class="block text-sm font-semibold text-gray-700">
-              <i class="fas fa-bell text-indigo-500 mr-1"></i> 提醒规则
-              <span class="text-xs font-normal text-gray-500 ml-2">（支持多条规则；新订阅默认 7/3/1 天 + 当天）</span>
-            </label>
-            <div class="flex items-center space-x-2">
-              <button type="button" id="reminderRulesPresetBtn"
-                class="text-xs px-2 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-gray-700">
-                <i class="fas fa-magic"></i> 应用预设(7/3/1/当天)
-              </button>
-              <button type="button" id="reminderRulesAddBtn"
-                class="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-                <i class="fas fa-plus"></i> 添加规则
-              </button>
+              <div>
+                <label for="expiryDate" class="label">到期日期 *</label>
+                <div class="input-icon-wrap relative">
+                  <input type="text" id="expiryDate" required placeholder="YYYY-MM-DD" autocomplete="off">
+                  <svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg>
+                  <div id="expiryDatePicker" class="custom-date-picker hidden">
+                    <div class="dp-nav">
+                      <button type="button" id="expiryDatePrevMonth" class="icon-btn ghost sm" aria-label="上个月"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+                      <div class="dp-title"><span id="expiryDateMonth">1月</span><span class="eyebrow">/</span><span id="expiryDateYear">2024</span></div>
+                      <button type="button" id="expiryDateNextMonth" class="icon-btn ghost sm" aria-label="下个月"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+                    </div>
+                    <div id="expiryDateMonthPicker" class="hidden mb-3"><div class="dp-nav"><span class="font-semibold">选择月份</span><button type="button" id="expiryDateBackToCalendar" class="icon-btn ghost sm" aria-label="返回"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="dp-sub"><button type="button" class="month-option" data-month="0">1月</button><button type="button" class="month-option" data-month="1">2月</button><button type="button" class="month-option" data-month="2">3月</button><button type="button" class="month-option" data-month="3">4月</button><button type="button" class="month-option" data-month="4">5月</button><button type="button" class="month-option" data-month="5">6月</button><button type="button" class="month-option" data-month="6">7月</button><button type="button" class="month-option" data-month="7">8月</button><button type="button" class="month-option" data-month="8">9月</button><button type="button" class="month-option" data-month="9">10月</button><button type="button" class="month-option" data-month="10">11月</button><button type="button" class="month-option" data-month="11">12月</button></div></div>
+                    <div id="expiryDateYearPicker" class="hidden mb-3"><div class="dp-nav"><span class="font-semibold">选择年份</span><button type="button" id="expiryDateBackToCalendarFromYear" class="icon-btn ghost sm" aria-label="返回"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="dp-nav"><button type="button" id="expiryDatePrevYearDecade" class="icon-btn ghost sm" aria-label="上一个十年"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg></button><span id="expiryDateYearRange" class="font-semibold mono">2020-2029</span><button type="button" id="expiryDateNextYearDecade" class="icon-btn ghost sm" aria-label="下一个十年"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div><div id="expiryDateYearGrid" class="dp-sub"></div></div>
+                    <div class="dp-week"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div><div id="expiryDateCalendar"></div>
+                    <div class="dp-foot"><button type="button" id="expiryDateGoToToday" class="btn btn-sm btn-ghost btn-block"><svg class="icon" aria-hidden="true"><use href="#i-calendar-day"/></svg>回到今天</button></div>
+                  </div>
+                </div>
+                <div id="expiryDateLunar" class="lunar-display"></div>
+                <div class="error-message" data-for="expiryDate"></div>
+              </div>
+              <div class="span-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <button type="button" id="calculateExpiryBtn" class="btn btn-sm">
+                  <svg class="icon" aria-hidden="true"><use href="#i-calculator"/></svg>按周期自动计算到期日
+                </button>
+                <label class="check-row" for="showLunar"><input type="checkbox" id="showLunar">显示农历日期</label>
+                <label class="check-row" for="useLunar"><input type="checkbox" id="useLunar">农历周期</label>
+                <label class="check-row" for="endOfMonth" title="仅公历；续订/推算时落到目标月最后一天"><input type="checkbox" id="endOfMonth">每月最后一天</label>
+              </div>
             </div>
-          </div>
-          <div id="reminderRulesContainer" class="space-y-2">
-            <!-- 规则行由 JS 注入 -->
-          </div>
-          <p class="mt-2 text-xs text-gray-500 leading-relaxed">
-            <strong class="text-gray-600">触发语义（精确匹配）：</strong>
-            「到期前 N 天」仅在剩余天数<strong>正好等于 N</strong> 时发送一次，不会在第 N-1…1 天自动连发。
-            若希望 7/3/1 天都提醒，请添加多条规则（可用上方预设）。
-            类型：到期前 = 精确日/小时；到期当天；到期后 = 每 X 小时重复直到续费/手动确认。
-          </p>
-          <!-- 兜底字段：旧调度器路径需要这两个值；当 reminderRules 为空时仍生效 -->
-          <input type="hidden" id="reminderUnit" value="day">
-          <input type="hidden" id="reminderValue" value="7">
-          <div class="error-message text-red-500" data-for="reminderValue"></div>
-          <p id="reminderHint" class="hidden"></p>
-        </div>
+          </section>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-3">选项设置</label>
-               <div class="flex items-center space-x-6">
-                  <label class="inline-flex items-center cursor-pointer select-none group">
-                    <input type="checkbox" id="isActive" checked 
-                      class="form-checkbox h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                    <span class="ml-2 text-sm text-gray-700 font-medium group-hover:text-indigo-700">启用订阅</span>
-                  </label>
-                  
-                  <label class="inline-flex items-center cursor-pointer select-none group">
-                    <input type="checkbox" id="autoRenew" checked 
-                      class="form-checkbox h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                    <span class="ml-2 text-sm text-gray-700 font-medium group-hover:text-indigo-700">自动续订</span>
-                  </label>
-               </div>
+          <!-- 提醒规则编辑器（多条规则）。隐藏的 reminderUnit/reminderValue 仅作为后端兜底字段保留。 -->
+          <section class="form-section">
+            <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <h3 class="form-section-title mb-0"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>提醒规则</h3>
+              <div class="flex items-center gap-2">
+                <button type="button" id="reminderRulesPresetBtn" class="btn btn-xs">
+                  <svg class="icon" aria-hidden="true"><use href="#i-wand"/></svg>预设 7/3/1/当天
+                </button>
+                <button type="button" id="reminderRulesAddBtn" class="btn btn-xs btn-primary">
+                  <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>添加规则
+                </button>
+              </div>
             </div>
+            <div class="panel p-3">
+              <div id="reminderRulesContainer" class="grid gap-2">
+                <!-- 规则行由 JS 注入 -->
+              </div>
+            </div>
+            <p class="hint">
+              <strong>精确匹配：</strong>「到期前 N 天」仅在剩余天数正好等于 N 时发送一次；希望 7/3/1 天都提醒请添加多条规则。
+              到期后规则按「每 X 小时」重复，直到续费或手动确认。
+            </p>
+            <!-- 兜底字段：旧调度器路径需要这两个值；当 reminderRules 为空时仍生效 -->
+            <input type="hidden" id="reminderUnit" value="day">
+            <input type="hidden" id="reminderValue" value="7">
+            <div class="error-message" data-for="reminderValue"></div>
+            <p id="reminderHint" class="hidden"></p>
+          </section>
+
+          <section class="form-section">
+            <h3 class="form-section-title"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>选项与备注</h3>
+            <div class="flex flex-wrap gap-x-8 gap-y-2 mb-4">
+              <label class="check-row" for="isActive"><input type="checkbox" id="isActive" class="switch" checked>启用订阅</label>
+              <label class="check-row" for="autoRenew"><input type="checkbox" id="autoRenew" class="switch" checked>自动续订</label>
+            </div>
+            <label for="notes" class="label">备注</label>
+            <textarea id="notes" rows="3" placeholder="可添加相关备注信息..."></textarea>
+            <div class="error-message"></div>
+          </section>
+
+          <input type="hidden" id="subscriptionId">
         </div>
 
-        <div>
-          <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">备注</label>
-          <textarea id="notes" rows="2" placeholder="可添加相关备注信息..."
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-          <div class="error-message text-red-500"></div>
-        </div>
-        
-        <input type="hidden" id="subscriptionId">
-
-        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-          <button type="button" id="cancelBtn" 
-            class="px-5 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 bg-white transition-colors">
-            取消
-          </button>
-          <button type="submit" 
-            class="btn-primary text-white px-6 py-2 rounded-md text-sm font-medium shadow-md hover:shadow-lg transform active:scale-95 transition-all">
-            <i class="fas fa-save mr-2"></i>保存
+        <div class="drawer-foot">
+          <button type="button" id="cancelBtn" class="btn">取消</button>
+          <button type="submit" class="btn btn-primary">
+            <svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>保存订阅
           </button>
         </div>
       </form>
@@ -775,6 +452,10 @@
   </div>
 
   <script>
+    window.__pageUnloading = false;
+    window.addEventListener('pagehide', () => { window.__pageUnloading = true; });
+    window.addEventListener('beforeunload', () => { window.__pageUnloading = true; });
+
     // 统一 API 请求封装：401 自动跳转登录页
     async function apiFetch(url, options) {
       const response = await fetch(url, options);
@@ -1093,21 +774,22 @@ const lunarBiz = {
 
       const toast = document.createElement('div');
       toast.className = 'toast ' + type;
-      
+      toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
       const icon = type === 'success' ? 'check-circle' :
-                   type === 'error' ? 'exclamation-circle' :
-                   type === 'warning' ? 'exclamation-triangle' : 'info-circle';
-      
-      toast.innerHTML = '<div class="flex items-center"><i class="fas fa-' + icon + ' mr-2"></i><span class="toast-msg"></span></div><span class="toast-close" onclick="this.parentElement.remove()">&times;</span>';
+                   type === 'error' ? 'alert-circle' :
+                   type === 'warning' ? 'alert-triangle' : 'info';
+
+      toast.innerHTML = '<span class="toast-icon"><svg class="icon" aria-hidden="true"><use href="#i-' + icon + '"/></svg></span><span class="toast-msg"></span><button type="button" class="toast-close" aria-label="关闭">&times;</button>';
       toast.querySelector('.toast-msg').textContent = message;
-      
+
       container.appendChild(toast);
-      setTimeout(() => toast.classList.add('show'), 50);
+      setTimeout(() => toast.classList.add('show'), 30);
       const timer = setTimeout(() => {
         toast.classList.remove('show');
-        setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 300);
+        setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 250);
       }, duration);
-      toast.querySelector('.toast-close').addEventListener('click', () => clearTimeout(timer));
+      toast.querySelector('.toast-close').addEventListener('click', () => { clearTimeout(timer); toast.remove(); });
     }
 
     function showFieldError(fieldId, message) {
@@ -1556,11 +1238,215 @@ const lunarBiz = {
       return currencySymbols[currency] || '¥';
     }
 
+    // ───────────────────────────────────────────────────────
+    // 订阅列表：按紧急程度分组（已过期 / 7 天内 / 30 天内 / 以后 / 已停用）
+    //   - 名称按 nameParts 渲染为域名 chip，超出部分 "+N" 可展开
+    //   - 行内主操作「续期」= 快捷续期一个周期；其余操作在「⋯」菜单中
+    //   - 行复选框 + 底部批量操作条（/api/subscriptions/batch）
+    // ───────────────────────────────────────────────────────
+    const selectedIds = new Set();
+    const expandedNames = new Set();
+    const collapsedGroups = { disabled: true };
+    try {
+      const savedCollapsed = JSON.parse(localStorage.getItem('listCollapsedGroups') || 'null');
+      if (savedCollapsed && typeof savedCollapsed === 'object') Object.assign(collapsedGroups, savedCollapsed);
+    } catch (_) { /* ignore */ }
+
+    const LIST_GROUPS = [
+      { key: 'expired', title: '已过期', color: 'var(--red)' },
+      { key: 'week', title: '7 天内', color: 'var(--amber)' },
+      { key: 'month', title: '30 天内', color: 'var(--green)' },
+      { key: 'later', title: '以后', color: 'var(--tertiary)' },
+      { key: 'disabled', title: '已停用', color: 'var(--line)' }
+    ];
+    const NAME_CHIP_LIMIT = 3;
+
+    function iconSvg(name, cls) {
+      return '<svg class="icon' + (cls ? ' ' + cls : '') + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+    }
+
+    function formatMoney(value, symbol) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '';
+      const fixed = Math.abs(n) >= 1000 ? Math.round(n).toLocaleString('zh-CN') : n.toFixed(2).replace(/\.00$/, '');
+      return (symbol || '') + fixed;
+    }
+
+    function getPeriodLabel(subscription) {
+      if (!subscription.periodValue || !subscription.periodUnit) return '';
+      const unitMap = { day: '天', month: '个月', year: '年' };
+      const v = Number(subscription.periodValue);
+      let label = '每 ' + v + ' ' + (unitMap[subscription.periodUnit] || subscription.periodUnit);
+      if (subscription.periodUnit === 'month' && v === 1) label = '每月';
+      if (subscription.periodUnit === 'month' && v === 3) label = '每季度';
+      if (subscription.periodUnit === 'month' && v === 6) label = '每半年';
+      if (subscription.periodUnit === 'year' && v === 1) label = '每年';
+      if (subscription.periodUnit === 'day' && v === 1) label = '每天';
+      if (subscription.endOfMonth && !subscription.useLunar) label += ' · 月末';
+      return label;
+    }
+
+    function getPeriodDays(subscription) {
+      const v = Number(subscription.periodValue) || 1;
+      if (subscription.periodUnit === 'year') return v * 365;
+      if (subscription.periodUnit === 'month') return v * 30;
+      return v;
+    }
+
+    /** 计算一行需要的派生状态（与筛选逻辑共用） */
+    function computeRowState(subscription, ctx) {
+      const expiryDate = new Date(subscription.expiryDate);
+      const expiryDateKey = formatDateInputInTimezone(subscription.expiryDate, globalTimezone);
+      const expiryDateInTimezone = createUtcCalendarDate(expiryDateKey);
+      const daysDiff = ctx.currentDateInTimezone && expiryDateInTimezone
+        ? Math.round((expiryDateInTimezone.getTime() - ctx.currentDateInTimezone.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      // 优先使用后端按配置时区计算的 daysLeft（列表接口派生字段），缺失时回退前端计算
+      const daysLeft = (typeof subscription.daysLeft === 'number' && Number.isFinite(subscription.daysLeft))
+        ? subscription.daysLeft
+        : daysDiff;
+      const diffMs = expiryDate.getTime() - ctx.currentTimestamp;
+      const diffHours = diffMs / (1000 * 60 * 60);
+      const reminder = getReminderSettings(subscription);
+      const isExpired = daysLeft < 0;
+      const isSoon = reminder.unit === 'hour'
+        ? diffHours >= 0 && diffHours <= reminder.value
+        : daysLeft >= 0 && daysLeft <= reminder.value;
+      const isDisabled = subscription.isActive === false;
+      let group = 'later';
+      if (isDisabled) group = 'disabled';
+      else if (isExpired) group = 'expired';
+      else if (daysLeft <= 7) group = 'week';
+      else if (daysLeft <= 30) group = 'month';
+      return { daysLeft, diffMs, diffHours, reminder, isExpired, isSoon, isDisabled, group, expiryDateKey };
+    }
+
+    function renderNameCell(subscription) {
+      const parts = Array.isArray(subscription.nameParts) && subscription.nameParts.length > 0
+        ? subscription.nameParts
+        : [subscription.name || ''];
+      // 只有当拆分结果像「域名 / 号码 / 账号」这类标识时才渲染为 chip，普通名称（如“订阅 2”）保持原样
+      const looksLikeToken = (p) => /[.@:]/.test(p) || /\d{5,}/.test(p);
+      const useChips = parts.length > 1 && parts.some(looksLikeToken);
+      let html = '';
+      if (!useChips) {
+        html += createHoverText(subscription.name || '', 40, 'sub-name');
+      } else {
+        const expanded = expandedNames.has(subscription.id);
+        const visible = expanded ? parts : parts.slice(0, NAME_CHIP_LIMIT);
+        html += '<div class="chips" title="' + escapeHtml(parts.join('\n')) + '">' +
+          visible.map(p => '<span class="chip">' + escapeHtml(p) + '</span>').join('') +
+          (parts.length > NAME_CHIP_LIMIT
+            ? '<button type="button" class="chip" data-more="' + escapeHtml(subscription.id) + '" aria-expanded="' + expanded + '">' +
+                (expanded ? '收起' : '+' + (parts.length - NAME_CHIP_LIMIT)) + '</button>'
+            : '') +
+          '</div>' +
+          '<div class="eyebrow mt-1">' + parts.length + ' 个条目</div>';
+      }
+      if (subscription.notes) {
+        html += '<div class="sub-meta" title="' + escapeHtml(subscription.notes) + '">' + escapeHtml(subscription.notes) + '</div>';
+      }
+      const categoryTokens = normalizeCategoryTokens(subscription.category);
+      if (categoryTokens.length) {
+        html += '<div class="cat-tags">' + categoryTokens.map(cat =>
+          '<span class="cat-tag">' + iconSvg('tag') + escapeHtml(cat) + '</span>'
+        ).join('') + '</div>';
+      }
+      return html;
+    }
+
+    function renderSubscriptionRow(subscription, state, showLunar) {
+      const id = escapeHtml(subscription.id);
+      const isSelected = selectedIds.has(subscription.id);
+
+      // 状态徽标
+      let statusHtml;
+      if (state.isDisabled) statusHtml = '<span class="badge badge-off badge-dot">已停用</span>';
+      else if (state.isExpired) statusHtml = '<span class="badge badge-over badge-dot">已过期</span>';
+      else if (state.daysLeft === 0) statusHtml = '<span class="badge badge-soon badge-dot">今天到期</span>';
+      else if (state.isSoon) statusHtml = '<span class="badge badge-soon badge-dot">即将到期</span>';
+      else statusHtml = '<span class="badge badge-ok badge-dot">正常</span>';
+
+      // 剩余时间文案
+      let daysLeftText;
+      if (state.isExpired) {
+        daysLeftText = '已过期 ' + Math.abs(state.daysLeft) + ' 天';
+      } else if (state.daysLeft === 0) {
+        const hoursLeft = Math.ceil(state.diffHours);
+        daysLeftText = hoursLeft > 0 ? '今天到期 · 约 ' + hoursLeft + ' 小时后' : '今天到期';
+      } else {
+        daysLeftText = '还剩 ' + state.daysLeft + ' 天';
+      }
+
+      // 类型 / 周期 / 模式
+      const isReset = subscription.subscriptionMode === 'reset';
+      const periodLabel = getPeriodLabel(subscription);
+      const typeHtml =
+        '<div class="cell-main" title="' + escapeHtml(subscription.customType || '其他') + '">' + escapeHtml(subscription.customType || '其他') + '</div>' +
+        '<div class="cell-sub">' +
+          '<span title="' + (isReset ? '到期重置' : '循环订阅') + '">' + iconSvg(isReset ? 'hourglass' : 'refresh') + (isReset ? '重置' : '循环') + '</span>' +
+          (subscription.autoRenew !== false ? '<span title="自动续订">· 自动续订</span>' : '<span title="不自动续订">· 手动</span>') +
+          (subscription.useLunar ? '<span class="badge badge-info" style="height:18px;padding:0 6px">农历</span>' : '') +
+        '</div>';
+
+      // 金额
+      const symbol = getCurrencySymbol(subscription.currency);
+      const hasAmount = subscription.amount !== null && subscription.amount !== undefined && subscription.amount !== '' && !Number.isNaN(Number(subscription.amount));
+      const amountHtml = hasAmount
+        ? '<div class="amount"><span class="cur">' + escapeHtml(symbol) + '</span>' + Number(subscription.amount).toFixed(2) + '</div>' +
+          (periodLabel ? '<div class="cell-sub">' + escapeHtml(periodLabel) + '</div>' : '')
+        : '<div class="eyebrow">未设置金额</div>' + (periodLabel ? '<div class="cell-sub">' + escapeHtml(periodLabel) + '</div>' : '');
+
+      // 到期
+      const tone = state.isDisabled ? '' : (state.isExpired ? 'over' : (state.daysLeft <= 7 ? 'soon' : ''));
+      let lunarHtml = '';
+      if (showLunar && state.expiryDateKey) {
+        const p = state.expiryDateKey.split('-');
+        if (p.length === 3) {
+          const lunar = lunarCalendar.solar2lunar(parseInt(p[0], 10), parseInt(p[1], 10), parseInt(p[2], 10));
+          if (lunar) lunarHtml = '<div class="lunar-line">农历 ' + lunar.fullStr + '</div>';
+        }
+      }
+      const startText = subscription.startDate ? '开始：' + formatDateInTimezone(subscription.startDate, globalTimezone) : '';
+      const periodDays = getPeriodDays(subscription);
+      let pct = state.isExpired ? 100 : Math.round(100 - (state.daysLeft / Math.max(periodDays, 1)) * 100);
+      pct = Math.max(4, Math.min(100, pct));
+      const expiryHtml =
+        '<div class="expiry-date ' + tone + '"' + (startText ? ' title="' + escapeHtml(startText) + '"' : '') + '>' + formatDateInTimezone(subscription.expiryDate, globalTimezone) + '</div>' +
+        '<div class="cell-sub">' + daysLeftText + '</div>' +
+        lunarHtml +
+        '<div class="urgency ' + (state.isDisabled ? 'off' : tone) + '" aria-hidden="true"><i style="width:' + pct + '%"></i></div>';
+
+      // 提醒
+      const remindHtml =
+        '<div class="cell-main" title="' + escapeHtml(state.reminder.displayText) + '">' + iconSvg('bell', 'mr-1') + escapeHtml(state.reminder.displayText) + '</div>' +
+        '<div class="cell-sub">精确日触发</div>';
+
+      // 操作
+      const primary = state.isDisabled
+        ? '<button type="button" class="btn btn-sm toggle-status" data-id="' + id + '" data-action="activate" title="启用此订阅">' + iconSvg('play-circle') + '启用</button>'
+        : '<button type="button" class="btn btn-sm quick-renew" data-id="' + id + '" title="续期一个周期">' + iconSvg('refresh') + '续期</button>';
+      const actionsHtml = primary +
+        '<button type="button" class="icon-btn sm row-menu-btn" data-id="' + id + '" aria-haspopup="menu" aria-label="更多操作" title="更多操作">' + iconSvg('more') + '</button>';
+
+      return '<div class="sub-row' + (state.isDisabled ? ' is-disabled' : '') + (isSelected ? ' is-selected' : '') + '" data-id="' + id + '">' +
+        '<div class="c-check"><input type="checkbox" class="row-check" data-id="' + id + '" aria-label="选择 ' + escapeHtml(subscription.name || '') + '"' + (isSelected ? ' checked' : '') + '></div>' +
+        '<div class="c-name">' + renderNameCell(subscription) + '</div>' +
+        '<div class="c-type">' + typeHtml + '</div>' +
+        '<div class="c-amount">' + amountHtml + '</div>' +
+        '<div class="c-expiry">' + expiryHtml + '</div>' +
+        '<div class="c-remind">' + remindHtml + '</div>' +
+        '<div class="c-status">' + statusHtml + '</div>' +
+        '<div class="c-actions">' + actionsHtml + '</div>' +
+      '</div>';
+    }
+
     function renderSubscriptionTable() {
       const tbody = document.getElementById('subscriptionsBody');
       if (!tbody) {
         return;
       }
+      closeRowMenu();
 
       const listShowLunar = document.getElementById('listShowLunar');
       const showLunar = listShowLunar ? listShowLunar.checked : false;
@@ -1574,6 +1460,10 @@ const lunarBiz = {
       const selectedStatus = statusSelect ? statusSelect.value : '';
 
       let filtered = Array.isArray(subscriptionsCache) ? [...subscriptionsCache] : [];
+
+      // 清理已不存在的选中项
+      const existingIds = new Set(filtered.map(s => s.id));
+      Array.from(selectedIds).forEach(id => { if (!existingIds.has(id)) selectedIds.delete(id); });
 
       if (selectedCategory) {
         filtered = filtered.filter(subscription =>
@@ -1599,280 +1489,427 @@ const lunarBiz = {
         });
       }
 
-      // 清空表格
-      tbody.innerHTML = '';
+      const ctx = {
+        currentTimestamp: Date.now(),
+        currentDateInTimezone: createUtcCalendarDate(getTodayDateStringInTimezone(globalTimezone))
+      };
+      const states = new Map();
+      filtered.forEach(s => states.set(s.id, computeRowState(s, ctx)));
 
-      const currentTime = new Date();
-      const currentTimestamp = currentTime.getTime();
-      const currentDateInTimezone = createUtcCalendarDate(getTodayDateStringInTimezone(globalTimezone));
-
-      // 状态筛选需要先算 daysDiff / soon，故在此处过滤
       if (selectedStatus) {
         filtered = filtered.filter(subscription => {
-          const expiryDate = new Date(subscription.expiryDate);
-          const expiryDateKey = formatDateInputInTimezone(subscription.expiryDate, globalTimezone);
-          const expiryDateInTimezone = createUtcCalendarDate(expiryDateKey);
-          const daysDiff = currentDateInTimezone && expiryDateInTimezone
-            ? Math.round((expiryDateInTimezone.getTime() - currentDateInTimezone.getTime()) / (1000 * 60 * 60 * 24))
-            : 0;
-          const diffMs = expiryDate.getTime() - currentTimestamp;
-          const diffHours = diffMs / (1000 * 60 * 60);
-          const reminder = getReminderSettings(subscription);
-          const isSoon = reminder.unit === 'hour'
-            ? diffHours >= 0 && diffHours <= reminder.value
-            : daysDiff >= 0 && daysDiff <= reminder.value;
-
-          if (selectedStatus === 'disabled') return subscription.isActive === false;
-          if (subscription.isActive === false) return false;
-          if (selectedStatus === 'expired') return daysDiff < 0 || diffMs < 0;
-          if (selectedStatus === 'soon') return isSoon && !(daysDiff < 0 || diffMs < 0);
-          if (selectedStatus === 'active') return !(daysDiff < 0 || diffMs < 0) && !isSoon;
+          const st = states.get(subscription.id);
+          if (selectedStatus === 'disabled') return st.isDisabled;
+          if (st.isDisabled) return false;
+          if (selectedStatus === 'expired') return st.isExpired;
+          if (selectedStatus === 'soon') return st.isSoon && !st.isExpired;
+          if (selectedStatus === 'active') return !st.isExpired && !st.isSoon;
           return true;
         });
       }
 
+      updateSubsCount(filtered.length);
+
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-gray-500"><div>没有符合条件的订阅</div><button onclick="document.getElementById(\'searchKeyword\').value=\'\';document.getElementById(\'clearSearch\').style.display=\'none\';document.getElementById(\'categoryFilter\').value=\'\';document.getElementById(\'modeFilter\').value=\'\';document.getElementById(\'statusFilter\').value=\'\';renderSubscriptionTable();" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800"><i class="fas fa-undo mr-1"></i>清除筛选条件</button></td></tr>';
+        const hasAny = Array.isArray(subscriptionsCache) && subscriptionsCache.length > 0;
+        tbody.innerHTML = '<div class="card empty">' +
+          iconSvg(hasAny ? 'search' : 'calendar-check') +
+          '<div class="font-medium" style="color:var(--ink)">' + (hasAny ? '没有符合条件的订阅' : '还没有订阅') + '</div>' +
+          '<div class="eyebrow mt-1">' + (hasAny ? '试试调整搜索或筛选条件' : '点击右上角「添加订阅」开始记录第一项') + '</div>' +
+          (hasAny
+            ? '<button type="button" id="clearFiltersBtn" class="btn btn-sm mt-4">' + iconSvg('undo') + '清除筛选条件</button>'
+            : '') +
+          '</div>';
+        const clearBtn = document.getElementById('clearFiltersBtn');
+        if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+            document.getElementById('searchKeyword').value = '';
+            document.getElementById('clearSearch').style.display = 'none';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('modeFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            renderSubscriptionTable();
+          });
+        }
+        updateBulkBar();
         return;
       }
 
       filtered.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
 
-      // 使用 DocumentFragment 进行批量插入，减少页面重绘（移动端性能关键）
-      const fragment = document.createDocumentFragment();
+      const grouped = {};
+      LIST_GROUPS.forEach(g => { grouped[g.key] = []; });
+      filtered.forEach(s => grouped[states.get(s.id).group].push(s));
 
-      filtered.forEach(subscription => {
-        const row = document.createElement('tr');
-        row.className = subscription.isActive === false ? 'hover:bg-gray-50 bg-gray-100' : 'hover:bg-gray-50';
+      const head = '<div class="sub-head" aria-hidden="true">' +
+        '<span></span><span>订阅</span><span>类型 / 模式</span><span>费用</span><span>到期</span><span>提醒</span><span>状态</span><span class="text-right">操作</span>' +
+        '</div>';
 
-        const calendarTypeHtml = subscription.useLunar
-          ? '<div class="text-xs text-purple-600 mt-1">日历类型：农历</div>'
-          : '<div class="text-xs text-gray-600 mt-1">日历类型：公历</div>';
-
-        const expiryDate = new Date(subscription.expiryDate);
-        const expiryDateKey = formatDateInputInTimezone(subscription.expiryDate, globalTimezone);
-        const expiryDateInTimezone = createUtcCalendarDate(expiryDateKey);
-        const daysDiff = currentDateInTimezone && expiryDateInTimezone
-          ? Math.round((expiryDateInTimezone.getTime() - currentDateInTimezone.getTime()) / (1000 * 60 * 60 * 24))
-          : 0;
-        const diffMs = expiryDate.getTime() - currentTimestamp;
-        const diffHours = diffMs / (1000 * 60 * 60);
-
-        const reminder = getReminderSettings(subscription);
-        const isSoon = reminder.unit === 'hour'
-          ? diffHours >= 0 && diffHours <= reminder.value
-          : daysDiff >= 0 && daysDiff <= reminder.value;
-
-        let statusHtml = '';
-        if (!subscription.isActive) {
-          statusHtml = '<span class="px-2 py-1 text-xs font-medium rounded-full text-white bg-gray-500"><i class="fas fa-pause-circle mr-1"></i>已停用</span>';
-        } else if (daysDiff < 0 || diffMs < 0) {
-          statusHtml = '<span class="px-2 py-1 text-xs font-medium rounded-full text-white bg-red-500"><i class="fas fa-exclamation-circle mr-1"></i>已过期</span>';
-        } else if (isSoon) {
-          statusHtml = '<span class="px-2 py-1 text-xs font-medium rounded-full text-white bg-yellow-500"><i class="fas fa-exclamation-triangle mr-1"></i>即将到期</span>';
-        } else {
-          statusHtml = '<span class="px-2 py-1 text-xs font-medium rounded-full text-white bg-green-500"><i class="fas fa-check-circle mr-1"></i>正常</span>';
+      let html = '';
+      LIST_GROUPS.forEach(g => {
+        const items = grouped[g.key];
+        if (!items.length) return;
+        const collapsed = !!collapsedGroups[g.key] && !keyword;
+        const allChecked = items.every(s => selectedIds.has(s.id));
+        html += '<div class="group-head" data-group="' + g.key + '">' +
+          '<div class="group-title">' +
+            '<input type="checkbox" class="group-check" data-group="' + g.key + '" aria-label="选择「' + g.title + '」分组全部"' + (allChecked ? ' checked' : '') + '>' +
+            '<span class="stat-dot" style="background:' + g.color + '"></span>' + g.title +
+            '<span class="count">' + items.length + ' 项</span>' +
+          '</div>' +
+          '<button type="button" class="group-toggle" data-group="' + g.key + '" aria-expanded="' + (!collapsed) + '">' +
+            iconSvg('chevron-down') + (collapsed ? '展开' : '收起') +
+          '</button>' +
+        '</div>';
+        if (!collapsed) {
+          html += '<section class="card group-card">' + head +
+            items.map(s => renderSubscriptionRow(s, states.get(s.id), showLunar)).join('') +
+            '</section>';
         }
+      });
+      tbody.innerHTML = html;
 
-        let periodText = '';
-        if (subscription.periodValue && subscription.periodUnit) {
-          const unitMap = { day: '天', month: '月', year: '年' };
-          let periodLabel = subscription.periodValue + ' ' + (unitMap[subscription.periodUnit] || subscription.periodUnit);
-          if (subscription.periodUnit === 'month' && Number(subscription.periodValue) === 3) periodLabel = '季度';
-          if (subscription.periodUnit === 'month' && Number(subscription.periodValue) === 6) periodLabel = '半年';
-          if (subscription.endOfMonth && !subscription.useLunar) periodLabel += ' · 月末';
-          periodText = periodLabel;
-        }
-
-        const autoRenewIcon = subscription.autoRenew !== false
-          ? '<i class="fas fa-sync-alt text-blue-500 mr-1" title="自动续订"></i>'
-          : '<i class="fas fa-ban text-gray-400 mr-1" title="不自动续订"></i>';
-
-        let lunarExpiryText = '';
-        let startLunarText = '';
-        
-        // 农历计算只在需要时执行，且简化逻辑
-        if (showLunar) {
-          const getLunarParts = (dateStr) => {
-            if (!dateStr) return null;
-            const datePart = formatDateInputInTimezone(dateStr, globalTimezone);
-            const parts = datePart.split('-');
-            if (parts.length !== 3) return null;
-            return {
-              y: parseInt(parts[0], 10),
-              m: parseInt(parts[1], 10),
-              d: parseInt(parts[2], 10)
-            };
-          };
-
-          const expiryParts = getLunarParts(subscription.expiryDate);
-          if (expiryParts) {
-             const lunarExpiry = lunarCalendar.solar2lunar(expiryParts.y, expiryParts.m, expiryParts.d);
-             lunarExpiryText = lunarExpiry ? lunarExpiry.fullStr : '';
-          }
-
-          if (subscription.startDate) {
-            const startParts = getLunarParts(subscription.startDate);
-            if (startParts) {
-               const lunarStart = lunarCalendar.solar2lunar(startParts.y, startParts.m, startParts.d);
-               startLunarText = lunarStart ? lunarStart.fullStr : '';
-            }
-          }
-        }
-
-        let notesHtml = '';
-        if (subscription.notes) {
-          const notes = subscription.notes;
-          if (notes.length > 50) {
-            const truncatedNotes = escapeHtml(notes.substring(0, 50)) + '...';
-            notesHtml = '<div class="notes-container">' +
-              '<div class="notes-text text-xs text-gray-500" data-full-notes="' + escapeHtml(notes).replace(/"/g, '&quot;') + '">' +
-                truncatedNotes +
-              '</div>' +
-              '<div class="notes-tooltip"></div>' +
-            '</div>';
-          } else {
-            notesHtml = '<div class="text-xs text-gray-500">' + escapeHtml(notes) + '</div>';
-          }
-        }
-
-        // 构造HTML字符串 (减少了函数调用)
-        const nameHtml = createHoverText(subscription.name, 20, 'text-sm font-medium text-gray-900');
-        const typeHtml = createHoverText(subscription.customType || '其他', 15, 'text-sm text-gray-900');
-        const periodHtml = periodText ? createHoverText('周期: ' + periodText, 20, 'text-xs text-gray-500 mt-1') : '';
-        const modeLabel = (subscription.subscriptionMode === 'reset') ? '到期重置' : '循环订阅';
-        const modeIconClass = (subscription.subscriptionMode === 'reset') ? 'fa-hourglass-end' : 'fa-sync';
-        const modeColorClass = (subscription.subscriptionMode === 'reset') ? 'text-orange-500' : 'text-blue-500';
-        const modeHtml = '<div class="text-xs ' + modeColorClass + ' mt-1"><i class="fas ' + modeIconClass + ' mr-1"></i>' + modeLabel + '</div>';
-
-        const categoryTokens = normalizeCategoryTokens(subscription.category);
-        const categoryHtml = categoryTokens.length
-          ? '<div class="flex flex-wrap gap-2 mt-2">' + categoryTokens.map(cat =>
-              '<span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-xs rounded-full"><i class="fas fa-tag mr-1"></i>' + escapeHtml(cat) + '</span>'
-            ).join('') + '</div>'
-          : '';
-
-        // 复用外部的 format 对象
-        const expiryDateText = formatDateInTimezone(subscription.expiryDate, globalTimezone);
-        const lunarHtml = lunarExpiryText ? createHoverText('农历: ' + lunarExpiryText, 25, 'text-xs text-blue-600 mt-1') : '';
-
-        let daysLeftText = '';
-        if (diffMs < 0) {
-          const absDays = Math.abs(daysDiff);
-          if (absDays >= 1) {
-            daysLeftText = '已过期' + absDays + '天';
-          } else {
-            const absHours = Math.ceil(Math.abs(diffHours));
-            daysLeftText = '已过期' + absHours + '小时';
-          }
-        } else if (daysDiff >= 1) {
-          daysLeftText = '还剩' + daysDiff + '天';
-        } else {
-          const hoursLeft = Math.max(0, Math.ceil(diffHours));
-          daysLeftText = hoursLeft > 0 ? '约 ' + hoursLeft + ' 小时后到期' : '即将到期';
-        }
-
-        const startDateText = subscription.startDate
-          ? '开始: ' + formatDateInTimezone(subscription.startDate, globalTimezone) + (startLunarText ? ' (' + startLunarText + ')' : '')
-          : '';
-        const startDateHtml = startDateText ? createHoverText(startDateText, 30, 'text-xs text-gray-500 mt-1') : '';
-
-        const reminderHtml = '<div class="text-sm text-gray-900"><i class="fas fa-bell mr-1 text-indigo-500"></i>' +
-          reminder.displayText + '</div>' +
-          '<div class="text-xs text-gray-400 mt-1">精确日触发</div>';
-
-        const currencySymbols = {
-          'CNY': '¥', 'USD': '$', 'HKD': 'HK$', 'TWD': 'NT$', 
-          'JPY': '¥', 'EUR': '€', 'GBP': '£', 'KRW': '₩', 'TRY': '₺'
-        };
-        const currencySymbol = currencySymbols[subscription.currency] || '¥';
-
-        const hasAmount = subscription.amount !== null && subscription.amount !== undefined && !Number.isNaN(Number(subscription.amount));
-        const amountHtml = hasAmount
-          ? '<div class="flex items-center gap-1">' +
-              '<span class="text-xs text-gray-500 font-bold">' + currencySymbol + '</span>' +
-              '<span class="text-sm font-medium text-gray-900">' + Number(subscription.amount).toFixed(2) + '</span>' +
-            '</div>'
-          : '<span class="text-xs text-gray-400">未设置</span>';
-
-        row.innerHTML =
-          '<td data-label="名称" class="px-4 py-3"><div class="td-content-wrapper">' +
-            nameHtml +
-            notesHtml +
-          '</div></td>' +
-          '<td data-label="类型" class="px-4 py-3"><div class="td-content-wrapper space-y-1">' +
-            '<div class="flex items-center gap-1">' +
-              '<i class="fas fa-layer-group text-gray-400"></i>' +
-              typeHtml +
-            '</div>' +
-            (periodHtml ? '<div class="flex items-center gap-1">' + autoRenewIcon + periodHtml + '</div>' : '') +
-            modeHtml +
-            categoryHtml +
-            calendarTypeHtml +
-          '</div></td>' +
-          '<td data-label="到期" class="px-4 py-3"><div class="td-content-wrapper">' +
-            '<div class="text-sm text-gray-900">' + expiryDateText + '</div>' +
-            lunarHtml +
-            '<div class="text-xs text-gray-500 mt-1">' + daysLeftText + '</div>' +
-            startDateHtml +
-          '</div></td>' +
-          '<td data-label="金额" class="px-4 py-3"><div class="td-content-wrapper">' +
-            amountHtml +
-          '</div></td>' +
-          '<td data-label="提醒" class="px-4 py-3"><div class="td-content-wrapper">' +
-            reminderHtml +
-          '</div></td>' +
-          '<td data-label="状态" class="px-4 py-3"><div class="td-content-wrapper">' + statusHtml + '</div></td>' +
-          '<td data-label="操作" class="px-4 py-3">' +
-            '<div class="action-buttons-wrapper">' +
-              '<button class="edit btn-primary text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '"><i class="fas fa-edit mr-1"></i>编辑</button>' +
-              '<button class="clone btn-clone text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '" title="克隆为新订阅"><i class="fas fa-copy mr-1"></i>克隆</button>' +
-              '<button class="view-history btn-history text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '" title="查看支付历史"><i class="fas fa-history mr-1"></i>历史</button>' +
-              '<button class="test-notify btn-info text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '"><i class="fas fa-paper-plane mr-1"></i>测试</button>' +
-              '<button class="renew-now btn-success text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '" title="立即续订一个周期"><i class="fas fa-sync-alt mr-1"></i>续订</button>' +
-              '<button class="delete btn-danger text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '"><i class="fas fa-trash-alt mr-1"></i>删除</button>' +
-              (subscription.isActive
-                ? '<button class="toggle-status btn-warning text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '" data-action="deactivate"><i class="fas fa-pause-circle mr-1"></i>停用</button>'
-                : '<button class="toggle-status btn-success text-white px-2 py-1 rounded text-xs whitespace-nowrap" data-id="' + subscription.id + '" data-action="activate"><i class="fas fa-play-circle mr-1"></i>启用</button>') +
-            '</div>' +
-          '</td>';
-
-        fragment.appendChild(row);
+      // 半选状态
+      tbody.querySelectorAll('.group-check').forEach(cb => {
+        const items = grouped[cb.dataset.group] || [];
+        const n = items.filter(s => selectedIds.has(s.id)).length;
+        cb.indeterminate = n > 0 && n < items.length;
       });
 
-      tbody.appendChild(fragment);
-      document.querySelectorAll('.edit').forEach(button => {
-        button.addEventListener('click', editSubscription);
-      });
-
-      document.querySelectorAll('.clone').forEach(button => {
-        button.addEventListener('click', cloneSubscription);
-      });
-
-      document.querySelectorAll('.delete').forEach(button => {
-        button.addEventListener('click', deleteSubscription);
-      });
-
-      document.querySelectorAll('.toggle-status').forEach(button => {
-        button.addEventListener('click', toggleSubscriptionStatus);
-      });
-
-      document.querySelectorAll('.test-notify').forEach(button => {
-        button.addEventListener('click', testSubscriptionNotification);
-      });
-
-      document.querySelectorAll('.renew-now').forEach(button => {
-        button.addEventListener('click', renewSubscriptionNow);
-      });
-
-      document.querySelectorAll('.view-history').forEach(button => {
-        button.addEventListener('click', viewPaymentHistory);
-      });
+      updateBulkBar();
 
       if (window.matchMedia('(hover: hover)').matches) {
           attachHoverListeners();
       }
     }
+
+    function updateSubsCount(visibleCount) {
+      const el = document.getElementById('subsCount');
+      if (!el) return;
+      const total = Array.isArray(subscriptionsCache) ? subscriptionsCache.length : 0;
+      el.textContent = visibleCount === total ? total + ' 项' : visibleCount + ' / ' + total + ' 项';
+    }
+
+    // ── 行内事件（事件委托，只绑定一次） ──
+    (function bindListEvents() {
+      const body = document.getElementById('subscriptionsBody');
+      if (!body) return;
+      body.addEventListener('click', (e) => {
+        const more = e.target.closest('[data-more]');
+        if (more) {
+          const id = more.getAttribute('data-more');
+          if (expandedNames.has(id)) expandedNames.delete(id); else expandedNames.add(id);
+          renderSubscriptionTable();
+          return;
+        }
+        const toggle = e.target.closest('.group-toggle');
+        if (toggle) {
+          const key = toggle.dataset.group;
+          collapsedGroups[key] = !collapsedGroups[key];
+          try { localStorage.setItem('listCollapsedGroups', JSON.stringify(collapsedGroups)); } catch (_) {}
+          renderSubscriptionTable();
+          return;
+        }
+        const quick = e.target.closest('.quick-renew');
+        if (quick) { quickRenewSubscription(quick.dataset.id, quick); return; }
+        const status = e.target.closest('.c-actions .toggle-status');
+        if (status) { toggleSubscriptionStatus({ target: status }); return; }
+        const menuBtn = e.target.closest('.row-menu-btn');
+        if (menuBtn) { openRowMenu(menuBtn); return; }
+      });
+      body.addEventListener('change', (e) => {
+        const rowCheck = e.target.closest('.row-check');
+        if (rowCheck) {
+          const id = rowCheck.dataset.id;
+          if (rowCheck.checked) selectedIds.add(id); else selectedIds.delete(id);
+          const row = rowCheck.closest('.sub-row');
+          if (row) row.classList.toggle('is-selected', rowCheck.checked);
+          syncGroupChecks();
+          updateBulkBar();
+          return;
+        }
+        const groupCheck = e.target.closest('.group-check');
+        if (groupCheck) {
+          const key = groupCheck.dataset.group;
+          const ids = getVisibleIdsInGroup(key);
+          ids.forEach(id => { if (groupCheck.checked) selectedIds.add(id); else selectedIds.delete(id); });
+          if (collapsedGroups[key] && groupCheck.checked) {
+            showToast('已选中「' + (LIST_GROUPS.find(g => g.key === key) || {}).title + '」中的 ' + ids.length + ' 项', 'info', 2500);
+          }
+          renderSubscriptionTable();
+        }
+      });
+    })();
+
+    function getVisibleIdsInGroup(key) {
+      // 与 renderSubscriptionTable 保持一致：基于当前筛选结果
+      const ctx = {
+        currentTimestamp: Date.now(),
+        currentDateInTimezone: createUtcCalendarDate(getTodayDateStringInTimezone(globalTimezone))
+      };
+      return (subscriptionsCache || [])
+        .filter(s => computeRowState(s, ctx).group === key && isVisibleUnderFilters(s, ctx))
+        .map(s => s.id);
+    }
+
+    function isVisibleUnderFilters(subscription, ctx) {
+      const keyword = (document.getElementById('searchKeyword').value || '').trim().toLowerCase();
+      const cat = (document.getElementById('categoryFilter').value || '').trim().toLowerCase();
+      const mode = document.getElementById('modeFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      if (cat && !normalizeCategoryTokens(subscription.category).some(t => t.toLowerCase() === cat)) return false;
+      if (mode && (subscription.subscriptionMode || 'cycle') !== mode) return false;
+      if (keyword) {
+        const hay = [subscription.name, subscription.customType, subscription.notes, subscription.category].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(keyword)) return false;
+      }
+      if (status) {
+        const st = computeRowState(subscription, ctx);
+        if (status === 'disabled') return st.isDisabled;
+        if (st.isDisabled) return false;
+        if (status === 'expired') return st.isExpired;
+        if (status === 'soon') return st.isSoon && !st.isExpired;
+        if (status === 'active') return !st.isExpired && !st.isSoon;
+      }
+      return true;
+    }
+
+    function syncGroupChecks() {
+      document.querySelectorAll('#subscriptionsBody .group-check').forEach(cb => {
+        const ids = getVisibleIdsInGroup(cb.dataset.group);
+        const n = ids.filter(id => selectedIds.has(id)).length;
+        cb.checked = ids.length > 0 && n === ids.length;
+        cb.indeterminate = n > 0 && n < ids.length;
+      });
+    }
+
+    function updateBulkBar() {
+      const bar = document.getElementById('bulkBar');
+      if (!bar) return;
+      const n = selectedIds.size;
+      document.getElementById('bulkCount').textContent = String(n);
+      bar.classList.toggle('hidden', n === 0);
+    }
+
+    function clearSelection() {
+      selectedIds.clear();
+      renderSubscriptionTable();
+    }
+
+    document.getElementById('bulkClear').addEventListener('click', clearSelection);
+    document.querySelectorAll('#bulkBar [data-bulk]').forEach(btn => {
+      btn.addEventListener('click', () => runBulkAction(btn.dataset.bulk, btn));
+    });
+
+    async function runBulkAction(action, button) {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      const labels = { renew: '续期', enable: '启用', disable: '停用', delete: '删除' };
+      const messages = {
+        renew: '将为选中的 ' + ids.length + ' 项各续期一个周期，并分别记录一条支付。',
+        enable: '将启用选中的 ' + ids.length + ' 项订阅。',
+        disable: '将停用选中的 ' + ids.length + ' 项订阅，停用后不再收到到期提醒。',
+        delete: '将永久删除选中的 ' + ids.length + ' 项订阅，此操作不可恢复。'
+      };
+      const ok = await confirmDialog({
+        title: '批量' + labels[action] + '？',
+        message: messages[action],
+        okText: '确认' + labels[action],
+        danger: action === 'delete'
+      });
+      if (!ok) return;
+
+      const buttons = document.querySelectorAll('#bulkBar button');
+      buttons.forEach(b => { b.disabled = true; });
+      const original = button.innerHTML;
+      button.innerHTML = iconSvg('loader', 'spin') + '<span class="btn-label">处理中</span>';
+      try {
+        const response = await apiFetch('/api/subscriptions/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: ids, action: action })
+        });
+        const result = await response.json();
+        if (!response.ok && !Array.isArray(result.results)) {
+          showToast('批量' + labels[action] + '失败：' + (result.message || ('HTTP ' + response.status)), 'error');
+          return;
+        }
+        const succeeded = result.succeeded != null ? result.succeeded : 0;
+        const failed = result.failed != null ? result.failed : 0;
+        if (failed === 0) {
+          showToast('批量' + labels[action] + '完成：' + succeeded + ' 项成功', 'success');
+        } else {
+          const firstErr = (result.results || []).find(r => !r.success);
+          showToast('批量' + labels[action] + '：' + succeeded + ' 项成功，' + failed + ' 项失败' + (firstErr && firstErr.message ? '（' + firstErr.message + '）' : ''), 'warning', 6000);
+        }
+        // 成功的项取消选中，失败的保留以便重试
+        (result.results || []).forEach(r => { if (r.success) selectedIds.delete(r.id); });
+        await loadSubscriptions(false);
+      } catch (error) {
+        if (error && error.message === 'AUTH_EXPIRED') return;
+        console.error('批量操作失败:', error);
+        showToast('批量操作失败，请稍后再试', 'error');
+      } finally {
+        buttons.forEach(b => { b.disabled = false; });
+        button.innerHTML = original;
+        updateBulkBar();
+      }
+    }
+
+    // ── 行「⋯」菜单 ──
+    let openMenuEl = null;
+    function closeRowMenu() {
+      if (openMenuEl) {
+        const btn = document.querySelector('.row-menu-btn[aria-expanded="true"]');
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+        openMenuEl.remove();
+        openMenuEl = null;
+      }
+    }
+
+    function openRowMenu(anchor) {
+      const id = anchor.dataset.id;
+      if (openMenuEl && openMenuEl.dataset.id === id) { closeRowMenu(); return; }
+      closeRowMenu();
+      const subscription = (subscriptionsCache || []).find(s => s.id === id);
+      if (!subscription) return;
+      const isActive = subscription.isActive !== false;
+      const menu = document.createElement('div');
+      menu.className = 'menu';
+      menu.setAttribute('role', 'menu');
+      menu.dataset.id = id;
+      const item = (cls, iconName, label, extra) =>
+        '<button type="button" role="menuitem" class="menu-item ' + cls + '" data-id="' + escapeHtml(id) + '"' + (extra || '') + '>' + iconSvg(iconName) + label + '</button>';
+      menu.innerHTML =
+        item('edit', 'edit', '编辑') +
+        item('clone', 'copy', '克隆为新订阅') +
+        item('renew-now', 'calendar-check', '自定义续期…') +
+        item('view-history', 'history', '支付记录') +
+        item('test-notify', 'send', '测试通知') +
+        (isActive
+          ? item('toggle-status', 'pause-circle', '停用', ' data-action="deactivate"')
+          : item('toggle-status', 'play-circle', '启用', ' data-action="activate"')) +
+        '<div class="menu-sep"></div>' +
+        item('delete danger', 'trash', '删除');
+      document.body.appendChild(menu);
+      openMenuEl = menu;
+      anchor.setAttribute('aria-expanded', 'true');
+
+      menu._anchor = anchor;
+      positionRowMenu();
+      const first = menu.querySelector('.menu-item');
+      if (first) first.focus({ preventScroll: true });
+
+      menu.addEventListener('click', (e) => {
+        const btn = e.target.closest('.menu-item');
+        if (!btn) return;
+        e.stopPropagation();
+        const fakeEvent = { target: btn, currentTarget: btn, preventDefault() {}, stopPropagation() {} };
+        closeRowMenu();
+        if (btn.classList.contains('edit')) editSubscription(fakeEvent);
+        else if (btn.classList.contains('clone')) cloneSubscription(fakeEvent);
+        else if (btn.classList.contains('renew-now')) renewSubscriptionNow(fakeEvent);
+        else if (btn.classList.contains('view-history')) viewPaymentHistory(fakeEvent);
+        else if (btn.classList.contains('test-notify')) testSubscriptionNotification(fakeEvent);
+        else if (btn.classList.contains('toggle-status')) toggleSubscriptionStatus(fakeEvent);
+        else if (btn.classList.contains('delete')) deleteSubscription(fakeEvent);
+      });
+      menu.addEventListener('keydown', (e) => {
+        const items = Array.from(menu.querySelectorAll('.menu-item'));
+        const i = items.indexOf(document.activeElement);
+        if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+        if (e.key === 'Escape') { e.stopPropagation(); closeRowMenu(); anchor.focus(); }
+      });
+    }
+
+    // 菜单跟随触发按钮定位；按钮滚出可视区域时关闭
+    function positionRowMenu() {
+      if (!openMenuEl || !openMenuEl._anchor) return;
+      const anchor = openMenuEl._anchor;
+      if (!document.body.contains(anchor)) { closeRowMenu(); return; }
+      const rect = anchor.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) { closeRowMenu(); return; }
+      const mw = openMenuEl.offsetWidth;
+      const mh = openMenuEl.offsetHeight;
+      let left = rect.right - mw;
+      let top = rect.bottom + 6;
+      if (left < 8) left = 8;
+      if (top + mh > window.innerHeight - 8) top = Math.max(8, rect.top - mh - 6);
+      openMenuEl.style.left = left + 'px';
+      openMenuEl.style.top = top + 'px';
+    }
+
+    document.addEventListener('click', (e) => {
+      if (openMenuEl && !openMenuEl.contains(e.target) && !e.target.closest('.row-menu-btn')) closeRowMenu();
+    });
+    window.addEventListener('resize', positionRowMenu);
+    window.addEventListener('scroll', positionRowMenu, { passive: true });
+
+    // ── 快捷续期：确认后 POST /renew（空 body = 续一个周期） ──
+    async function quickRenewSubscription(id, button) {
+      const subscription = (subscriptionsCache || []).find(s => s.id === id);
+      if (!subscription) return;
+      const periodLabel = getPeriodLabel(subscription) || '一个周期';
+      const hasAmount = subscription.amount !== null && subscription.amount !== undefined && subscription.amount !== '';
+      const amountText = hasAmount ? '，并记录一笔 ' + formatMoney(subscription.amount, getCurrencySymbol(subscription.currency)) + ' 的支付' : '';
+      const ok = await confirmDialog({
+        title: '续期一个周期？',
+        message: '「' + (subscription.name || '') + '」将按「' + periodLabel + '」续期' + amountText + '。需要自定义支付日期、金额或周期数，请使用「⋯ → 自定义续期」。',
+        okText: '确认续期'
+      });
+      if (!ok) return;
+
+      const original = button ? button.innerHTML : '';
+      if (button) { button.disabled = true; button.innerHTML = iconSvg('loader', 'spin') + '续期中'; }
+      try {
+        const response = await apiFetch('/api/subscriptions/' + encodeURIComponent(id) + '/renew', { method: 'POST' });
+        let result = null;
+        try { result = await response.json(); } catch (_) { result = { success: false, message: '服务返回了无法解析的响应' }; }
+        if (response.ok && result.success) {
+          const newExpiry = result.expiryDate || (result.subscription && result.subscription.expiryDate);
+          showToast('「' + (subscription.name || '') + '」已续期，新到期日：' + (newExpiry ? formatDateInTimezone(newExpiry, globalTimezone) : '已更新'), 'success', 4500);
+          await loadSubscriptions(false);
+        } else {
+          showToast('续期失败：' + ((result && result.message) || ('HTTP ' + response.status)), 'error');
+        }
+      } catch (error) {
+        if (error && error.message === 'AUTH_EXPIRED') return;
+        console.error('快捷续期失败:', error);
+        showToast('续期时发生错误，请稍后再试', 'error');
+      } finally {
+        if (button && document.body.contains(button)) { button.disabled = false; button.innerHTML = original; }
+      }
+    }
+
+    // ── 概览统计条：/api/dashboard/stats ──
+    async function loadSummaryStats() {
+      try {
+        const response = await apiFetch('/api/dashboard/stats');
+        const result = await response.json();
+        if (!result || !result.success || !result.data) return;
+        const stats = result.data.expiryStats || {};
+        const spend = result.data.estimatedAnnualSpend || {};
+        const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setText('statExpired', String(stats.expired != null ? stats.expired : 0));
+        setText('statSoon7', String(stats.expiringIn7Days != null ? stats.expiringIn7Days : 0));
+        setText('statSoon30', String(stats.expiringIn30Days != null ? stats.expiringIn30Days : 0));
+        const symbol = getCurrencySymbol(spend.currency || 'CNY');
+        setText('statAnnual', formatMoney(spend.amount != null ? spend.amount : 0, symbol + ' '));
+        setText('statAnnualSub', spend.monthly != null ? '月均 ' + formatMoney(spend.monthly, symbol) + ' · 折合 ' + (spend.currency || 'CNY') : '按周期折算');
+
+        // 7 天内：最近一次的提示
+        const upcoming = (subscriptionsCache || [])
+          .filter(s => s.isActive !== false && typeof s.daysLeft === 'number' && s.daysLeft >= 0 && s.daysLeft <= 7)
+          .map(s => s.daysLeft);
+        const nearest = upcoming.length ? Math.min.apply(null, upcoming) : null;
+        setText('statSoon7Sub', nearest === null ? '近期无到期' : (nearest === 0 ? '最近一项今天到期' : '最近一项在 ' + nearest + ' 天后'));
+      } catch (error) {
+        if (error && error.message === 'AUTH_EXPIRED') return;
+        console.warn('加载概览统计失败:', error);
+      }
+    }
+
 
     const searchInput = document.getElementById('searchKeyword');
     if (searchInput) {
@@ -1919,7 +1956,7 @@ const lunarBiz = {
 
         const tbody = document.getElementById('subscriptionsBody');
         if (tbody && showLoading) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>加载中...</td></tr>';
+          tbody.innerHTML = '<div class="grid gap-3"><div class="loading-skeleton"></div><div class="loading-skeleton"></div><div class="loading-skeleton"></div></div>';
         }
 
         const response = await apiFetch('/api/subscriptions');
@@ -1928,11 +1965,14 @@ const lunarBiz = {
         subscriptionsCache = Array.isArray(data) ? data : [];
         populateCategoryFilter(subscriptionsCache);
         renderSubscriptionTable();
+        loadSummaryStats();
       } catch (error) {
+        // 页面跳转 / 刷新中被中断的请求不算失败
+        if (window.__pageUnloading || (error && error.message === 'AUTH_EXPIRED')) return;
         console.error('加载订阅失败:', error);
         const tbody = document.getElementById('subscriptionsBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-red-500"><i class="fas fa-exclamation-circle mr-2"></i>加载失败，请刷新页面重试</td></tr>';
+          tbody.innerHTML = '<div class="card empty" style="color:var(--red)"><svg class="icon" aria-hidden="true" style="color:var(--red)"><use href="#i-alert-circle"/></svg>加载失败，请刷新页面重试</div>';
         }
         showToast('加载订阅列表失败', 'error');
       }
@@ -1952,7 +1992,7 @@ const lunarBiz = {
         }
 
         const originalContent = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>发送中';
+        button.innerHTML = '<svg class="icon spin mr-1" aria-hidden="true"><use href="#i-loader"/></svg>发送中';
         button.disabled = true;
 
         try {
@@ -1980,7 +2020,7 @@ const lunarBiz = {
     }
 
     async function renewSubscriptionNow(e) {
-        const button = e.target.tagName === 'BUTTON' ? e.target : e.target.parentElement;
+        const button = e.target.closest('button') || e.target;
         const id = button.dataset.id;
 
         try {
@@ -2028,78 +2068,52 @@ const lunarBiz = {
         const symbol = currencySymbols[currency] || '¥';
         const currencyLabel = "(" + currency + " " + symbol + ")";
         
-        const lunarBadge = subscription.useLunar ? 
-            '<span class="text-sm bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full border border-purple-200 shrink-0">农历周期</span>' : '';
+        const lunarBadge = subscription.useLunar ?
+            '<span class="badge badge-info">农历周期</span>' : '';
 
         // 构建 Modal HTML
-        const modalHtml = 
-            '<div id="renewFormModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onclick="closeRenewFormModal(event)">' +
-            '    <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white" onclick="event.stopPropagation()">' +
-            '        <div class="flex justify-between items-center pb-3 border-b">' +
-            '            <h3 class="text-xl font-semibold text-gray-900">' +
-            '                <i class="fas fa-sync-alt mr-2"></i>手动续订 - ' + escapeHtml(subscription.name) +
-            '            </h3>' +
-            '            <button onclick="closeRenewFormModal()" class="text-gray-400 hover:text-gray-500">' +
-            '                <i class="fas fa-times text-2xl"></i>' +
-            '            </button>' +
-            '        </div>' +
-            '' +
-            '        <form id="renewForm" class="mt-4 space-y-4">' +
-            '            <div>' +
-            '                <label class="block text-sm font-medium text-gray-700 mb-1">支付日期</label>' +
-            '                <input type="date" id="renewPaymentDate" value="' + today + '"' +
-            '                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">' +
-            '            </div>' +
-            '' +
-            '            <div>' +
-            '                <label class="block text-sm font-medium text-gray-700 mb-1">支付金额 ' + currencyLabel + '</label>' +
-            '                <input type="number" id="renewAmount" value="' + defaultAmount + '" step="0.01" min="0"' +
-            '                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">' +
-            '            </div>' +
-            '' +
-            '            <div>' +
-            '                <div class="flex justify-between items-center mb-1">' +
-            '                    <label class="block text-sm font-medium text-gray-700">续订周期数</label>' +
-            '                    ' + lunarBadge + 
-            '                </div>' +
-            '                <div class="flex items-center space-x-2">' +
-            '                    <input type="number" id="renewPeriodMultiplier" value="1" min="1" max="120"' +
-            '                           class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"' +
-            '                           oninput="updateNewExpiryPreview()">' +
-            '                    <span class="text-gray-600">个</span>' + 
-            '                </div>' +
-            '                <p class="mt-1 text-xs text-gray-500">一次性续订多个周期（如12个月）</p>' +
-            '            </div>' +
-            '' +
-            '            <div class="bg-blue-50 rounded-lg p-4 mb-4">' +
-            '                <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-3 sm:mb-2">' +
-            '                    <span class="text-gray-500 text-sm shrink-0">当前到期:</span>' +
-            '                    <span class="font-medium text-gray-900 text-sm break-words">' + currentExpiryDisplay + '</span>' +
-            '                </div>' +
-            '                <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">' +
-            '                    <span class="text-gray-500 text-sm shrink-0">新到期日:</span>' +
-            '                    <span class="font-medium text-blue-600 text-sm break-words" id="newExpiryPreview">计算中...</span>' +
-            '                </div>' +
-            '            </div>' +
-            '' +
-            '            <div>' +
-            '                <label class="block text-sm font-medium text-gray-700 mb-1">备注 (可选)</label>' +
-            '                <input type="text" id="renewNote" placeholder="例如：年度优惠、价格调整"' +
-            '                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">' +
-            '            </div>' +
-            '' +
-            '            <div class="flex justify-end space-x-3 pt-3">' +
-            '                <button type="button" onclick="closeRenewFormModal()"' +
-            '                        class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md">' +
-            '                    取消' +
-            '                </button>' +
-            '                <button type="submit" id="confirmRenewBtn"' +
-            '                        class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-md">' +
-            '                    <i class="fas fa-check mr-1"></i>确认续订' +
-            '                </button>' +
-            '            </div>' +
-            '        </form>' +
+        const modalHtml =
+            '<div id="renewFormModal" class="overlay" onclick="closeRenewFormModal(event)">' +
+            '  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="renewFormTitle" onclick="event.stopPropagation()">' +
+            '    <div class="dialog-head">' +
+            '      <div class="min-w-0">' +
+            '        <div class="eyebrow">自定义续期</div>' +
+            '        <h3 id="renewFormTitle" class="dialog-title mt-0.5"><span class="truncate">' + escapeHtml(subscription.name) + '</span></h3>' +
+            '      </div>' +
+            '      <button type="button" onclick="closeRenewFormModal()" class="icon-btn ghost" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>' +
             '    </div>' +
+            '    <form id="renewForm">' +
+            '      <div class="dialog-body grid gap-4">' +
+            '        <div class="panel p-4 grid gap-2 text-sm">' +
+            '          <div class="flex justify-between gap-3"><span class="eyebrow shrink-0">当前到期</span><span class="font-medium text-right break-words mono">' + currentExpiryDisplay + '</span></div>' +
+            '          <div class="flex justify-between gap-3"><span class="eyebrow shrink-0">新到期日</span><span class="font-semibold text-right break-words mono" style="color:var(--green)" id="newExpiryPreview">计算中...</span></div>' +
+            '        </div>' +
+            '        <div class="grid grid-cols-2 gap-3">' +
+            '          <div>' +
+            '            <label class="label" for="renewPaymentDate">支付日期</label>' +
+            '            <input type="date" id="renewPaymentDate" value="' + today + '">' +
+            '          </div>' +
+            '          <div>' +
+            '            <label class="label" for="renewAmount">支付金额 ' + currencyLabel + '</label>' +
+            '            <input type="number" id="renewAmount" value="' + defaultAmount + '" step="0.01" min="0">' +
+            '          </div>' +
+            '        </div>' +
+            '        <div>' +
+            '          <div class="flex justify-between items-center mb-1.5"><label class="label mb-0" for="renewPeriodMultiplier">续订周期数</label>' + lunarBadge + '</div>' +
+            '          <input type="number" id="renewPeriodMultiplier" value="1" min="1" max="120" oninput="updateNewExpiryPreview()">' +
+            '          <p class="hint">一次性续订多个周期（如 12 个月）</p>' +
+            '        </div>' +
+            '        <div>' +
+            '          <label class="label" for="renewNote">备注（可选）</label>' +
+            '          <input type="text" id="renewNote" placeholder="例如：年度优惠、价格调整">' +
+            '        </div>' +
+            '      </div>' +
+            '      <div class="dialog-foot">' +
+            '        <button type="button" onclick="closeRenewFormModal()" class="btn">取消</button>' +
+            '        <button type="submit" id="confirmRenewBtn" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>确认续订</button>' +
+            '      </div>' +
+            '    </form>' +
+            '  </div>' +
             '</div>';
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
@@ -2178,7 +2192,7 @@ const lunarBiz = {
         };
 
         const originalBtnContent = confirmBtn.innerHTML;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>续订中...';
+        confirmBtn.innerHTML = '<svg class="icon spin mr-1" aria-hidden="true"><use href="#i-loader"/></svg>续订中...';
         confirmBtn.disabled = true;
 
         try {
@@ -2218,7 +2232,7 @@ const lunarBiz = {
     };
 
     async function viewPaymentHistory(e) {
-        const button = e.target.tagName === 'BUTTON' ? e.target : e.target.parentElement;
+        const button = e.target.closest('button') || e.target;
         const id = button.dataset.id;
 
         try {
@@ -2248,15 +2262,15 @@ const lunarBiz = {
 
         let paymentsHtml = '';
         if (payments.length === 0) {
-            paymentsHtml = '<div class="text-center text-gray-500 py-8">暂无支付记录</div>';
+            paymentsHtml = '<div class="empty"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg>暂无支付记录</div>';
         } else {
             paymentsHtml = payments.reverse().map(payment => {
                 const typeLabel = payment.type === 'initial' ? '初始订阅' :
                                 payment.type === 'manual' ? '手动续订' :
                                 payment.type === 'auto' ? '自动续订' : '未知';
-                const typeClass = payment.type === 'initial' ? 'bg-blue-100 text-blue-800' :
-                                payment.type === 'manual' ? 'bg-green-100 text-green-800' :
-                                payment.type === 'auto' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800';
+                const typeClass = payment.type === 'initial' ? 'badge-info' :
+                                payment.type === 'manual' ? 'badge-ok' :
+                                payment.type === 'auto' ? 'badge-soon' : 'badge-off';
                 const formattedDate = formatDateInTimezone(payment.date, globalTimezone);
                 const formattedTime = formatClockTimeInTimezone(payment.date, globalTimezone);
 
@@ -2266,40 +2280,28 @@ const lunarBiz = {
                     const options = { month: 'short' };
                     const startStr = formatDateInTimezone(payment.periodStart, globalTimezone, options);
                     const endStr = formatDateInTimezone(payment.periodEnd, globalTimezone, options);
-                    periodHtml = '<div class="mt-1 ml-6 text-xs text-gray-500"><i class="fas fa-clock mr-1"></i>计费周期: ' + startStr + ' - ' + endStr + '</div>';
+                    periodHtml = '<div class="cell-sub"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>计费周期：' + startStr + ' – ' + endStr + '</div>';
                 }
 
-                const noteHtml = payment.note ? '<div class="mt-1 ml-6 text-sm text-gray-600">' + escapeHtml(payment.note) + '</div>' : '';
-                const paymentDataJson = JSON.stringify(payment).replace(/"/g, '&quot;');
+                const noteHtml = payment.note ? '<div class="text-sm mt-1" style="color:var(--muted)">' + escapeHtml(payment.note) + '</div>' : '';
                 return `
-                    <div class="border-b border-gray-200 py-3 hover:bg-gray-50">
-                        <div class="flex justify-between items-start gap-3">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2">
-                                    <i class="fas fa-calendar-alt text-gray-400"></i>
-                                    <span class="font-medium">${formattedDate} ${formattedTime}</span>
-                                    <span class="px-2 py-1 rounded text-xs font-medium ${typeClass}">${typeLabel}</span>
-                                </div>
-                                ${periodHtml}
-                                ${noteHtml}
+                    <div class="pay-item">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-medium mono">${formattedDate} ${formattedTime}</span>
+                                <span class="badge ${typeClass}">${typeLabel}</span>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <div class="text-right">
-                                    <div class="text-lg font-bold text-gray-900">${getCurrencySymbol(payment.currency || subscription.currency)}${Number(payment.amount || 0).toFixed(2)}</div>
-                                </div>
-                                <div class="flex gap-1">
-                                    <button onclick="editPaymentRecord('${subscription.id}', '${payment.id}')"
-                                            class="text-blue-600 hover:text-blue-800 px-2 py-1"
-                                            title="编辑">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button onclick="deletePaymentRecord('${subscription.id}', '${payment.id}')"
-                                            class="text-red-600 hover:text-red-800 px-2 py-1"
-                                            title="删除">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </div>
-                            </div>
+                            ${periodHtml}
+                            ${noteHtml}
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <div class="amount mr-2">${getCurrencySymbol(payment.currency || subscription.currency)}${Number(payment.amount || 0).toFixed(2)}</div>
+                            <button type="button" onclick="editPaymentRecord('${subscription.id}', '${payment.id}')" class="icon-btn ghost sm" title="编辑" aria-label="编辑支付记录">
+                                <svg class="icon" aria-hidden="true"><use href="#i-edit"/></svg>
+                            </button>
+                            <button type="button" onclick="deletePaymentRecord('${subscription.id}', '${payment.id}')" class="icon-btn ghost sm" style="color:var(--red)" title="删除" aria-label="删除支付记录">
+                                <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
+                            </button>
                         </div>
                     </div>
                 `;
@@ -2307,38 +2309,34 @@ const lunarBiz = {
         }
 
         const modalHtml = `
-            <div id="paymentHistoryModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onclick="closePaymentHistoryModal(event)">
-                <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white" onclick="event.stopPropagation()">
-                    <div class="flex justify-between items-center pb-3 border-b">
-                        <h3 class="text-xl font-semibold text-gray-900">
-                            <i class="fas fa-history mr-2"></i>${escapeHtml(subscription.name)} - 支付历史
-                        </h3>
-                        <button onclick="closePaymentHistoryModal()" class="text-gray-400 hover:text-gray-500">
-                            <i class="fas fa-times text-2xl"></i>
+            <div id="paymentHistoryModal" class="overlay" onclick="closePaymentHistoryModal(event)">
+                <div class="dialog dialog-lg" role="dialog" aria-modal="true" aria-labelledby="paymentHistoryTitle" onclick="event.stopPropagation()">
+                    <div class="dialog-head">
+                        <div class="min-w-0">
+                            <div class="eyebrow">支付记录</div>
+                            <h3 id="paymentHistoryTitle" class="dialog-title mt-0.5"><span class="truncate">${escapeHtml(subscription.name)}</span></h3>
+                        </div>
+                        <button type="button" onclick="closePaymentHistoryModal()" class="icon-btn ghost" aria-label="关闭">
+                            <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
                         </button>
                     </div>
-
-                    <div class="mt-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="text-center">
-                                <div class="text-sm text-gray-600">累计支出</div>
-                                <div class="text-2xl font-bold text-purple-600">${getCurrencySymbol(subscription.currency)}${totalAmount.toFixed(2)}</div>
+                    <div class="dialog-body">
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div class="panel p-4">
+                                <div class="eyebrow">累计支出</div>
+                                <div class="text-2xl font-semibold mono mt-1">${getCurrencySymbol(subscription.currency)}${totalAmount.toFixed(2)}</div>
                             </div>
-                            <div class="text-center">
-                                <div class="text-sm text-gray-600">支付次数</div>
-                                <div class="text-2xl font-bold text-blue-600">${paymentCount}</div>
+                            <div class="panel p-4">
+                                <div class="eyebrow">支付次数</div>
+                                <div class="text-2xl font-semibold mono mt-1">${paymentCount}</div>
                             </div>
                         </div>
+                        <div class="max-h-96 overflow-y-auto pr-1">
+                            ${paymentsHtml}
+                        </div>
                     </div>
-
-                    <div class="mt-4 max-h-96 overflow-y-auto">
-                        ${paymentsHtml}
-                    </div>
-
-                    <div class="mt-4 flex justify-end">
-                        <button onclick="closePaymentHistoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
-                            关闭
-                        </button>
+                    <div class="dialog-foot">
+                        <button type="button" onclick="closePaymentHistoryModal()" class="btn">关闭</button>
                     </div>
                 </div>
             </div>
@@ -2360,7 +2358,7 @@ const lunarBiz = {
     };
 
     window.deletePaymentRecord = async function(subscriptionId, paymentId) {
-        if (!confirm('确认删除此支付记录？删除后将重新计算统计数据。')) {
+        if (!(await confirmDialog({ title: '删除支付记录？', message: '确认删除此支付记录？删除后将重新计算统计数据。', okText: '删除', danger: true }))) {
             return;
         }
 
@@ -2412,50 +2410,40 @@ const lunarBiz = {
         const formattedDate = formatDateInputInTimezone(payment.date, globalTimezone);
 
         const modalHtml = `
-            <div id="editPaymentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" onclick="closeEditPaymentModal(event)">
-                <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white" onclick="event.stopPropagation()">
-                    <div class="flex justify-between items-center pb-3 border-b">
-                        <h3 class="text-xl font-semibold text-gray-900">
-                            <i class="fas fa-edit mr-2"></i>编辑支付记录
-                        </h3>
-                        <button onclick="closeEditPaymentModal()" class="text-gray-400 hover:text-gray-500">
-                            <i class="fas fa-times text-2xl"></i>
+            <div id="editPaymentModal" class="overlay" style="z-index:70" onclick="closeEditPaymentModal(event)">
+                <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="editPaymentTitle" onclick="event.stopPropagation()">
+                    <div class="dialog-head">
+                        <h3 id="editPaymentTitle" class="dialog-title">编辑支付记录</h3>
+                        <button type="button" onclick="closeEditPaymentModal()" class="icon-btn ghost" aria-label="关闭">
+                            <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
                         </button>
                     </div>
 
-                    <form id="editPaymentForm" class="mt-4 space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">订阅名称</label>
-                            <input type="text" value="${escapeHtml(subscription.name)}" disabled
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+                    <form id="editPaymentForm">
+                        <div class="dialog-body grid gap-4">
+                            <div>
+                                <label class="label">订阅名称</label>
+                                <input type="text" value="${escapeHtml(subscription.name)}" disabled>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="label" for="editPaymentDate">支付日期</label>
+                                    <input type="date" id="editPaymentDate" value="${formattedDate}">
+                                </div>
+                                <div>
+                                    <label class="label" for="editPaymentAmount">金额（${subscription.currency || 'CNY'} ${getCurrencySymbol(payment.currency || subscription.currency)}）</label>
+                                    <input type="number" id="editPaymentAmount" value="${payment.amount}" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="label" for="editPaymentNote">备注</label>
+                                <input type="text" id="editPaymentNote" value="${escapeHtml(payment.note || '')}">
+                            </div>
                         </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">支付日期</label>
-                            <input type="date" id="editPaymentDate" value="${formattedDate}"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">支付金额 (${subscription.currency || 'CNY'} ${getCurrencySymbol(payment.currency || subscription.currency)})</label>
-                            <input type="number" id="editPaymentAmount" value="${payment.amount}" step="0.01" min="0"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
-                            <input type="text" id="editPaymentNote" value="${escapeHtml(payment.note || '')}"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-
-                        <div class="flex justify-end space-x-3 pt-3">
-                            <button type="button" onclick="closeEditPaymentModal()"
-                                    class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md">
-                                取消
-                            </button>
-                            <button type="submit" id="confirmEditBtn"
-                                    class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md">
-                                <i class="fas fa-check mr-1"></i>保存
+                        <div class="dialog-foot">
+                            <button type="button" onclick="closeEditPaymentModal()" class="btn">取消</button>
+                            <button type="submit" id="confirmEditBtn" class="btn btn-primary">
+                                <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>保存
                             </button>
                         </div>
                     </form>
@@ -2491,7 +2479,7 @@ const lunarBiz = {
         };
 
         const originalBtnContent = confirmBtn.innerHTML;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>保存中...';
+        confirmBtn.innerHTML = '<svg class="icon spin mr-1" aria-hidden="true"><use href="#i-loader"/></svg>保存中...';
         confirmBtn.disabled = true;
 
         try {
@@ -2532,15 +2520,15 @@ const lunarBiz = {
     };
 
     async function toggleSubscriptionStatus(e) {
-      const id = e.target.dataset.id || e.target.parentElement.dataset.id;
-      const action = e.target.dataset.action || e.target.parentElement.dataset.action;
+      const button = e.target.closest('button') || e.target;
+      const id = button.dataset.id;
+      const action = button.dataset.action;
       const isActivate = action === 'activate';
 
-      if (!isActivate && !confirm('确定要停用此订阅吗？停用后将不再收到到期提醒。')) return;
+      if (!isActivate && !(await confirmDialog({ title: '停用订阅？', message: '确定要停用此订阅吗？停用后将不再收到到期提醒。', okText: '停用' }))) return;
 
-      const button = e.target.tagName === 'BUTTON' ? e.target : e.target.parentElement;
       const originalContent = button.innerHTML;
-      button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + (isActivate ? '启用中...' : '停用中...');
+      button.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>' + (isActivate ? '启用中...' : '停用中...');
       button.disabled = true;
 
       try {
@@ -2563,6 +2551,7 @@ const lunarBiz = {
           }
           showToast((isActivate ? '启用' : '停用') + '成功', 'success');
           renderSubscriptionTable();
+          loadSummaryStats();
         } else {
           const error = await response.json();
           showToast((isActivate ? '启用' : '停用') + '失败: ' + (error.message || '未知错误'), 'error');
@@ -2611,7 +2600,7 @@ const lunarBiz = {
       if (!id) return;
       const original = button.innerHTML;
       button.disabled = true;
-      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+      button.innerHTML = '<svg class="icon spin" aria-hidden="true"><use href="#i-loader"/></svg>';
       try {
         const response = await apiFetch('/api/subscriptions/' + id);
         const subscription = await response.json();
@@ -2867,6 +2856,8 @@ const lunarBiz = {
           this.currentView = 'calendar';
           this.hideAllViews();
           this.render();
+          // 抽屉内容可滚动：确保弹出的日历完整可见
+          try { this.picker.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) { /* ignore */ }
           console.log('日期选择器已显示');
         } else {
           console.error('日期选择器元素不存在');
@@ -3416,6 +3407,8 @@ const lunarBiz = {
     // ESC 键关闭模态框
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        if (openMenuEl) { closeRowMenu(); return; }
+        if (document.getElementById('editPaymentModal')) { closeEditPaymentModal(); return; }
         const modal = document.getElementById('subscriptionModal');
         if (!modal.classList.contains('hidden')) {
           modal.classList.add('hidden');
@@ -3477,7 +3470,7 @@ const lunarBiz = {
       
       const submitButton = e.target.querySelector('button[type="submit"]');
       const originalContent = submitButton.innerHTML;
-      submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>' + (id ? '更新中...' : '保存中...');
+      submitButton.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>' + (id ? '更新中...' : '保存中...');
       submitButton.disabled = true;
       
       try {
@@ -3514,7 +3507,7 @@ const lunarBiz = {
       const button = e.target.closest('button');
       const id = button ? button.dataset.id : (e.target.dataset.id || e.target.parentElement.dataset.id);
       const originalButtonContent = button?.innerHTML;
-      if (button) { button.disabled = true; button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+      if (button) { button.disabled = true; button.innerHTML = '<svg class="icon spin" aria-hidden="true"><use href="#i-loader"/></svg>'; }
       
       try {
         const response = await apiFetch('/api/subscriptions/' + id);
@@ -3595,15 +3588,16 @@ const lunarBiz = {
     }
     
     async function deleteSubscription(e) {
-      const id = e.target.dataset.id || e.target.parentElement.dataset.id;
-      
-      if (!confirm('确定要删除这个订阅吗？此操作不可恢复。')) {
+      const button = e.target.closest('button') || e.target;
+      const id = button.dataset.id;
+      const target = (subscriptionsCache || []).find(s => s.id === id);
+
+      if (!(await confirmDialog({ title: '删除订阅？', message: '确定要删除' + (target ? '「' + target.name + '」' : '这个订阅') + '吗？此操作不可恢复。', okText: '删除', danger: true }))) {
         return;
       }
-      
-      const button = e.target.tagName === 'BUTTON' ? e.target : e.target.parentElement;
+
       const originalContent = button.innerHTML;
-      button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>删除中...';
+      button.innerHTML = '<svg class="icon spin mr-2" aria-hidden="true"><use href="#i-loader"/></svg>删除中...';
       button.disabled = true;
       
       try {
@@ -3734,51 +3728,6 @@ const lunarBiz = {
       }
     }
     showSystemTime();
-    // --- 新增：移动端菜单控制脚本 ---
-    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-    const mobileMenu = document.getElementById('mobile-menu');
-    
-    if (mobileMenuBtn && mobileMenu) {
-      const syncMobileMenuState = () => {
-        const icon = mobileMenuBtn.querySelector('i');
-        const isHidden = mobileMenu.classList.contains('hidden');
-        mobileMenuBtn.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
-        if (icon) {
-          icon.classList.toggle('fa-bars', isHidden);
-          icon.classList.toggle('fa-times', !isHidden);
-        }
-      };
-
-      mobileMenuBtn.addEventListener('click', () => {
-        mobileMenu.classList.toggle('hidden');
-        syncMobileMenuState();
-      });
-
-      mobileMenu.querySelectorAll('a').forEach(link => {  // 点击菜单项自动关闭
-        link.addEventListener('click', () => {
-          mobileMenu.classList.add('hidden');
-          syncMobileMenuState();
-        });
-      });
-
-      document.addEventListener('click', (event) => {
-        if (mobileMenu.classList.contains('hidden')) return;
-        if (!mobileMenu.contains(event.target) && !mobileMenuBtn.contains(event.target)) {
-          mobileMenu.classList.add('hidden');
-          syncMobileMenuState();
-        }
-      });
-
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !mobileMenu.classList.contains('hidden')) {
-          mobileMenu.classList.add('hidden');
-          syncMobileMenuState();
-        }
-      });
-
-      syncMobileMenuState();
-    }
-
     // ───────────────────────────────────────────────────────
     // 多提醒规则编辑器（内嵌在订阅表单中）
     //   - 数据形态：[{ id, type, value, unit, repeatInterval?, repeatUntil?, isEnabled }]
@@ -3826,30 +3775,28 @@ const lunarBiz = {
       function renderRow(rule) {
         const isAfter = rule.type === 'after_expiry';
         const wrap = document.createElement('div');
-        wrap.className = 'flex flex-wrap items-center gap-2 bg-white rounded border border-gray-200 px-2 py-2';
+        wrap.className = 'rule-row';
         wrap.dataset.ruleId = rule.id;
+        const isOn = rule.type === 'on_expiry';
         wrap.innerHTML = `
-          <label class="inline-flex items-center text-xs">
-            <input type="checkbox" class="rule-enabled mr-1 form-checkbox h-4 w-4 text-indigo-600" ${rule.isEnabled ? 'checked' : ''}>
-            <span class="text-gray-600">启用</span>
-          </label>
-          <select class="rule-type px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+          <input type="checkbox" class="rule-enabled switch" title="启用此规则" aria-label="启用此规则" ${rule.isEnabled ? 'checked' : ''}>
+          <select class="rule-type field-sm" aria-label="规则类型">
             ${RULE_TYPES.map(t => `<option value="${t.value}" ${rule.type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
           </select>
-          <input type="number" class="rule-value w-16 px-2 py-1 text-xs border border-gray-300 rounded ${rule.type === 'on_expiry' ? 'opacity-50' : ''}" value="${rule.value}" min="0" ${rule.type === 'on_expiry' ? 'disabled' : ''}>
-          <select class="rule-unit px-2 py-1 text-xs border border-gray-300 rounded bg-white ${rule.type === 'on_expiry' ? 'opacity-50' : ''}" ${rule.type === 'on_expiry' ? 'disabled' : ''}>
+          <input type="number" class="rule-value field-sm field-xs ${isOn ? 'opacity-50' : ''}" value="${rule.value}" min="0" aria-label="数值" ${isOn ? 'disabled' : ''}>
+          <select class="rule-unit field-sm ${isOn ? 'opacity-50' : ''}" aria-label="单位" ${isOn ? 'disabled' : ''}>
             ${UNITS.map(u => `<option value="${u.value}" ${rule.unit === u.value ? 'selected' : ''}>${u.label}</option>`).join('')}
           </select>
           ${isAfter ? `
-            <span class="text-xs text-gray-500">每</span>
-            <input type="number" class="rule-repeat-interval w-16 px-2 py-1 text-xs border border-gray-300 rounded" value="${rule.repeatInterval || 24}" min="1">
-            <span class="text-xs text-gray-500">小时直到</span>
-            <select class="rule-repeat-until px-2 py-1 text-xs border border-gray-300 rounded bg-white">
+            <span class="rule-text">每</span>
+            <input type="number" class="rule-repeat-interval field-sm field-xs" value="${rule.repeatInterval || 24}" min="1" aria-label="重复间隔（小时）">
+            <span class="rule-text">小时，直到</span>
+            <select class="rule-repeat-until field-sm" aria-label="停止条件">
               ${REPEAT_UNTIL.map(u => `<option value="${u.value}" ${rule.repeatUntil === u.value ? 'selected' : ''}>${u.label}</option>`).join('')}
             </select>
           ` : ''}
-          <button type="button" class="rule-delete ml-auto text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded">
-            <i class="fas fa-trash"></i>
+          <button type="button" class="rule-delete icon-btn ghost sm" style="color:var(--red)" title="删除规则" aria-label="删除规则">
+            <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>
           </button>
         `;
         // 绑定事件
@@ -3899,7 +3846,7 @@ const lunarBiz = {
         container.innerHTML = '';
         if (rules.length === 0) {
           const empty = document.createElement('div');
-          empty.className = 'text-xs text-gray-500 italic px-2 py-3';
+          empty.className = 'eyebrow px-2 py-3';
           empty.textContent = '当前没有提醒规则；订阅到期时不会发出通知。点击"添加规则"或"应用预设"。';
           container.appendChild(empty);
           return;
@@ -4015,7 +3962,7 @@ const lunarBiz = {
     fetch('/api/version').then(r=>r.json()).then(d=>{
       if(d.version){
         const footer=document.createElement('div');
-        footer.className='text-center text-xs text-gray-400 py-4';
+        footer.className='app-footer';
         footer.textContent='SubsTracker v'+d.version;
         document.body.appendChild(footer);
       }

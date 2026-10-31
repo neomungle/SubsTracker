@@ -1,107 +1,109 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>订阅管理系统</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-  ${themeResources}  <style>
-    .login-container {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-    }
-    .login-box {
-      backdrop-filter: blur(8px);
-      background-color: rgba(255, 255, 255, 0.9);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    }
-    .input-field {
-      transition: all 0.3s;
-      border: 1px solid #e2e8f0;
-    }
-    .input-field:focus {
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
-    }
-    html.dark .login-container {
-      background: linear-gradient(135deg, #3b4cc4 0%, #4a2b6b 100%);
-    }
-    html.dark .login-box {
-      background-color: rgba(17, 24, 39, 0.95);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    }
-    html.dark .login-box .text-gray-800 { color: #f3f4f6; }
-    html.dark .login-box .text-gray-600,
-    html.dark .login-box .text-gray-700 { color: #cbd5e1; }
+  <title>登录 · SubsTracker</title>
+  ${themeResources}
+  <style>
+    .login-bg { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+      background: radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--card) 90%, transparent) 0, transparent 34%),
+                  radial-gradient(circle at 85% 90%, color-mix(in srgb, var(--brand-amber) 10%, transparent) 0, transparent 30%),
+                  linear-gradient(135deg, var(--paper), color-mix(in srgb, var(--paper) 88%, var(--muted))); }
+    .login-card { width: min(420px, 100%); padding: 34px 32px 28px; }
+    .login-brand { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; margin-bottom: 28px; }
+    .login-brand .brand-mark { width: 52px; height: 52px; }
+    .login-brand .wordmark { font-size: 22px; font-weight: 650; letter-spacing: -.03em; }
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 46px; }
+    .pw-toggle { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+    .pw-toggle .i-eye-off { display: none; }
+    .pw-toggle.on .i-eye { display: none; }
+    .pw-toggle.on .i-eye-off { display: inline-block; }
+    #errorMsg:empty { display: none; }
+    @media (max-width: 480px) { .login-card { padding: 28px 22px 22px; } }
   </style>
 </head>
-<body class="login-container flex items-center justify-center">
-  <div class="login-box p-8 rounded-xl w-full max-w-md">
-    <div class="text-center mb-8">
-      <h1 class="text-2xl font-bold text-gray-800"><i class="fas fa-calendar-check mr-2"></i>订阅管理系统</h1>
-      <p class="text-gray-600 mt-2">登录管理您的订阅提醒</p>
-    </div>
-    
-    <form id="loginForm" class="space-y-6">
-      <div>
-        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">
-          <i class="fas fa-user mr-2"></i>用户名
-        </label>
-        <input type="text" id="username" name="username" required
-          class="input-field w-full px-4 py-3 rounded-lg text-gray-700 focus:outline-none">
+<body>
+  <!--ICON_SPRITE-->
+  <main class="login-bg">
+    <section class="card login-card">
+      <div class="login-brand">
+        <!--LOGO_MARK-->
+        <div>
+          <div class="wordmark">SubsTracker</div>
+          <div class="eyebrow mt-1">订阅到期提醒 · 登录管理您的订阅</div>
+        </div>
       </div>
-      
-      <div>
-        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
-          <i class="fas fa-lock mr-2"></i>密码
-        </label>
-        <input type="password" id="password" name="password" required
-          class="input-field w-full px-4 py-3 rounded-lg text-gray-700 focus:outline-none">
-      </div>
-      
-      <button type="submit" 
-        class="btn-primary w-full py-3 rounded-lg text-white font-medium focus:outline-none">
-        <i class="fas fa-sign-in-alt mr-2"></i>登录
-      </button>
-      
-      <div id="errorMsg" class="text-red-500 text-center" role="alert"></div>
-      <p class="text-xs text-amber-700 text-center mt-3 leading-relaxed">
+
+      <form id="loginForm" class="grid gap-4" novalidate>
+        <div>
+          <label for="username" class="label">用户名</label>
+          <input type="text" id="username" name="username" required autocomplete="username" autofocus>
+        </div>
+
+        <div>
+          <label for="password" class="label">密码</label>
+          <div class="pw-wrap">
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+            <button type="button" class="icon-btn ghost sm pw-toggle" id="togglePassword" aria-label="显示 / 隐藏密码">
+              <svg class="icon i-eye" aria-hidden="true"><use href="#i-eye"/></svg>
+              <svg class="icon i-eye-off" aria-hidden="true"><use href="#i-eye-off"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="errorMsg" class="banner banner-danger" role="alert"></div>
+
+        <button type="submit" class="btn btn-primary btn-lg btn-block mt-1">
+          <svg class="icon" aria-hidden="true"><use href="#i-log-in"/></svg>登录
+        </button>
+      </form>
+
+      <p class="hint text-center mt-6">
         若仍使用默认账号 <code>admin</code> / <code>password</code>，登录后请立即在「系统配置」修改密码。
       </p>
-    </form>
-  </div>
+    </section>
+  </main>
 
   <script>
+    document.getElementById('togglePassword').addEventListener('click', function () {
+      var p = document.getElementById('password');
+      var show = p.type === 'password';
+      p.type = show ? 'text' : 'password';
+      this.classList.toggle('on', show);
+    });
+
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
-      
-      const button = e.target.querySelector('button');
+      const errorEl = document.getElementById('errorMsg');
+      errorEl.textContent = '';
+
+      const button = e.target.querySelector('button[type="submit"]');
       const originalContent = button.innerHTML;
-      button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>登录中...';
+      button.innerHTML = '<svg class="icon spin" aria-hidden="true"><use href="#i-loader"/></svg>登录中...';
       button.disabled = true;
-      
+
       try {
         const response = await fetch('/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
           window.location.href = '/admin';
         } else {
-          document.getElementById('errorMsg').textContent = result.message || '用户名或密码错误';
+          errorEl.textContent = result.message || '用户名或密码错误';
           button.innerHTML = originalContent;
           button.disabled = false;
         }
       } catch (error) {
-        document.getElementById('errorMsg').textContent = '发生错误，请稍后再试';
+        errorEl.textContent = '发生错误，请稍后再试';
         button.innerHTML = originalContent;
         button.disabled = false;
       }
