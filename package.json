@@ -11,7 +11,8 @@
     "deploy:safe": "npm run setup && npm run deploy",
     "lint": "tsc --noEmit -p jsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:css": "tailwindcss -c tailwind/tailwind.config.cjs -i tailwind/input.css -o public/css/tailwind.css --minify"
   },
   "dependencies": {
     "hono": "^4.6.14"
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.40",
     "@cloudflare/workers-types": "^4.20241218.0",
+    "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
     "vitest": "~2.1.9",
     "wrangler": "^3.99.0"

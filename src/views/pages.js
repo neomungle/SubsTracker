@@ -67,8 +67,14 @@ function renderHeader(active) {
 }
 
 // themeResources 需要注入到每个页面模板中；APP_HEADER / ICON_SPRITE / LOGO_MARK 为页面骨架占位
+// Tailwind 工具类已预编译为静态资源（npm run build:css），不再依赖 cdn.tailwindcss.com（国内常被墙/很慢）
+// 放在 </head> 前，保持与原 Play CDN 相同的层叠顺序（工具类在页面自带样式之后）
+const TAILWIND_CSS_VERSION = '029d3c32';
+const TAILWIND_LINK = `<link rel="stylesheet" href="/css/tailwind.css?v=${TAILWIND_CSS_VERSION}">`;
+
 function injectTheme(html) {
   return html
+    .replace('</head>', () => `  ${TAILWIND_LINK}\n</head>`)
     .replace(/\$\{themeResources\}/g, () => themeResourcesHtml)
     .replace(/<!--\s*ICON_SPRITE\s*-->/g, () => ICON_SPRITE)
     .replace(/<!--\s*LOGO_MARK\s*-->/g, () => LOGO_MARK)

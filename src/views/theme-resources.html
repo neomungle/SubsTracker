@@ -12,41 +12,6 @@
       if (dark) document.documentElement.classList.add('dark');
     })();
   </script>
-  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script>
-    /* Tailwind v3 Play CDN：关闭 preflight（使用下方自带的基础样式），
-       并把常用色板映射到设计 token，旧页面中的 gray / indigo / red ... 工具类会自动跟随浅色 / 深色主题。 */
-    (function () {
-      function v(name) { return 'rgb(var(--c-' + name + ') / <alpha-value>)'; }
-      function scale(bg, line, solid) {
-        return { 50: v(bg), 100: v(bg), 200: v(line), 300: v(line), 400: v(solid), 500: v(solid), 600: v(solid), 700: v(solid), 800: v(solid), 900: v(solid) };
-      }
-      var neutral = { 50: v('card2'), 100: v('paper'), 200: v('line'), 300: v('line'), 400: v('tertiary'), 500: v('muted'), 600: v('muted'), 700: v('ink'), 800: v('ink'), 900: v('ink') };
-      var ink = { 50: v('card2'), 100: v('paper'), 200: v('line'), 300: v('line'), 400: v('ink'), 500: v('ink'), 600: v('ink'), 700: v('ink'), 800: v('ink'), 900: v('ink') };
-      var red = scale('redbg', 'redline', 'red');
-      var amber = scale('amberbg', 'amberline', 'amber');
-      var green = scale('greenbg', 'greenline', 'green');
-      var blue = scale('bluebg', 'blueline', 'blue');
-      tailwind.config = {
-        darkMode: 'class',
-        corePlugins: { preflight: false },
-        theme: {
-          extend: {
-            colors: {
-              white: v('card'), black: v('ink'),
-              gray: neutral, slate: neutral, zinc: neutral, neutral: neutral, stone: neutral,
-              indigo: ink, violet: ink,
-              red: red, rose: red, pink: red,
-              yellow: amber, amber: amber, orange: amber,
-              green: green, emerald: green, teal: green, lime: green,
-              blue: blue, sky: blue, cyan: blue, purple: blue,
-              paper: v('paper'), card: v('card'), line: v('line'), ink: v('ink'), muted: v('muted')
-            }
-          }
-        }
-      };
-    })();
-  </script>
   <style>
     /* ═════════════ 设计 token（浅色 / 深色） ═════════════ */
     :root {
